@@ -1,4 +1,4 @@
-module github.com/JamesMoreau/GemPaint
+module github.com/JamesMoreau/GemBoard
 
 go 1.21.4
 
