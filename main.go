@@ -11,32 +11,19 @@ import (
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
-	"golang.org/x/exp/shiny/materialdesign/icons"
 )
 
-// TODO: put colors stuff into one array instead of 3 separate arrays
+// TODO: get the color borders working: try a bigger circle behind. also maybe remove the icon
 
-type AppState struct {
+type ApplicationState struct {
 	theme *material.Theme
 
 	BrushButton widget.Clickable
-	BrushIcon   *widget.Icon
-
 	EraserButton widget.Clickable
-	EraserIcon   *widget.Icon
-
 	SelectedTool SelectedTool
 
 	colorButtons       []ColorButton
 	selectedColorIndex int
-	ColorIcon          *widget.Icon
-}
-
-type ColorButton struct {
-	Color  color.NRGBA
-	Label  string
-	Button widget.Clickable
-	Icon   *widget.Icon
 }
 
 type SelectedTool string
@@ -52,20 +39,16 @@ var lightGray = color.NRGBA{R: 200, G: 200, B: 200, A: 255}
 var defaultMargin = unit.Dp(10)
 
 func main() {
-	state := AppState{
+	state := ApplicationState{
 		theme: material.NewTheme(),
 		colorButtons: []ColorButton{
-			{Color: color.NRGBA{R: 255, G: 0, B: 0, A: 255}, Label: "Red", Button: widget.Clickable{}, Icon: loadIcon(icons.ImageBrightness1)},
-			{Color: color.NRGBA{R: 0, G: 255, B: 0, A: 255}, Label: "Green", Button: widget.Clickable{}, Icon: loadIcon(icons.ImageBrightness1)},
-			{Color: color.NRGBA{R: 0, G: 0, B: 255, A: 255}, Label: "Blue", Button: widget.Clickable{}, Icon: loadIcon(icons.ImageBrightness1)},
+			{Color: color.NRGBA{R: 255, G: 0, B: 0, A: 255}, Label: "Red",   Size: 16, Clickable: &widget.Clickable{}},
+			{Color: color.NRGBA{R: 0, G: 255, B: 0, A: 255}, Label: "Green", Size: 16, Clickable: &widget.Clickable{}},
+			{Color: color.NRGBA{R: 0, G: 0, B: 255, A: 255}, Label: "Blue",  Size: 16, Clickable: &widget.Clickable{}},
 		},
 		selectedColorIndex: 0,
 		SelectedTool: Brush,
 	}
-
-	state.BrushIcon = loadIcon(icons.ImageBrush)
-	state.EraserIcon = loadIcon(icons.ImageBrightness1)
-	state.ColorIcon = loadIcon(icons.ImageColorLens)
 
 	go func() {
 		window := new(app.Window)
@@ -83,7 +66,7 @@ func main() {
 	app.Main()
 }
 
-func run(window *app.Window, state *AppState) error {
+func run(window *app.Window, state *ApplicationState) error {
 	theme := material.NewTheme()
 	var ops op.Ops
 
@@ -114,7 +97,7 @@ func run(window *app.Window, state *AppState) error {
 	}
 }
 
-func layoutSidebar(gtx layout.Context, state *AppState, theme *material.Theme) layout.Dimensions {
+func layoutSidebar(gtx layout.Context, state *ApplicationState, theme *material.Theme) layout.Dimensions {
 	inset := layout.UniformInset(defaultMargin)
 
 	if state.BrushButton.Clicked(gtx) {
@@ -130,7 +113,7 @@ func layoutSidebar(gtx layout.Context, state *AppState, theme *material.Theme) l
 	// Handle color button clicks
 	for i := range state.colorButtons {
 		btn := &state.colorButtons[i]
-		wasClicked := btn.Button.Clicked(gtx)
+		wasClicked := btn.Clickable.Clicked(gtx)
 		if wasClicked {
 			state.selectedColorIndex = i
 			println("Selected color: ", btn.Label)
@@ -139,9 +122,9 @@ func layoutSidebar(gtx layout.Context, state *AppState, theme *material.Theme) l
 
 	// Tool buttons
 	children := []layout.FlexChild{
-		layout.Rigid(toolButton(theme, &state.BrushButton, state.BrushIcon, "Brush", state.SelectedTool == Brush)),
+		layout.Rigid(toolButton(theme, &state.BrushButton, BrushIcon, "Brush", state.SelectedTool == Brush)),
 		layout.Rigid(layout.Spacer{Height: unit.Dp(8)}.Layout),
-		layout.Rigid(toolButton(theme, &state.EraserButton, state.EraserIcon, "Eraser", state.SelectedTool == Eraser)),
+		layout.Rigid(toolButton(theme, &state.EraserButton, EraserIcon, "Eraser", state.SelectedTool == Eraser)),
 		layout.Rigid(layout.Spacer{Height: unit.Dp(8)}.Layout),
 	}
 
@@ -149,7 +132,7 @@ func layoutSidebar(gtx layout.Context, state *AppState, theme *material.Theme) l
 	for i := range state.colorButtons {
 		btn := &state.colorButtons[i]
 		children = append(children,
-			layout.Rigid(colorButton(theme, &btn.Button, btn.Color, btn.Label, btn.Icon, state.selectedColorIndex == i)),
+			layout.Rigid(btn.Layout(gtx, theme)),
 			layout.Rigid(layout.Spacer{Height: unit.Dp(8)}.Layout),
 		)
 	}
@@ -172,21 +155,7 @@ func toolButton(th *material.Theme, btn *widget.Clickable, icon *widget.Icon, la
 	}
 }
 
-func colorButton(th *material.Theme, btn *widget.Clickable, btn_color color.NRGBA, color_name string, icon *widget.Icon, selected bool) layout.Widget {
-	return func(gtx layout.Context) layout.Dimensions {
-		iconButton := material.IconButton(th, btn, icon, "color")
-		iconButton.Background = btn_color
-		iconButton.Color = btn_color
-
-		if selected {
-			iconButton.Color = lightGray
-		}
-
-		return iconButton.Layout(gtx)
-	}
-}
-
-func layoutCanvas(gtx layout.Context, state *AppState) layout.Dimensions {
+func layoutCanvas(gtx layout.Context, state *ApplicationState) layout.Dimensions {
 	// r := image.Rectangle{Max: image.Point{X: 800, Y: 600}}
 	// area := clip.Rect(r).Push(ops)
 	// event.Op{Tag: h}.Add(ops)
@@ -200,13 +169,4 @@ func layoutCanvas(gtx layout.Context, state *AppState) layout.Dimensions {
 				})
 		}),
 	)
-}
-
-func loadIcon(data []byte) *widget.Icon {
-	icon, err := widget.NewIcon(data)
-	if err != nil || icon == nil {
-		log.Fatal(err)
-	}
-
-	return icon
 }
