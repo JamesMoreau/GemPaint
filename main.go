@@ -8,6 +8,8 @@ import (
 	"gioui.org/app"
 	"gioui.org/layout"
 	"gioui.org/op"
+	"gioui.org/op/clip"
+	"gioui.org/op/paint"
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
@@ -20,7 +22,7 @@ type ApplicationState struct {
 	EraserButton widget.Clickable
 	SelectedTool SelectedTool
 
-	colorButtons       []ColorButton
+	colorButtons       []ColorButtonStyle
 	selectedColorIndex int
 }
 
@@ -36,10 +38,13 @@ var defaultMargin = unit.Dp(10)
 func main() {
 	state := ApplicationState{
 		theme: material.NewTheme(),
-		colorButtons: []ColorButton{
-			{Color: color.NRGBA{R: 255, G: 0, B: 0, A: 255}, Label: "Red", Size: 16, Clickable: &widget.Clickable{}},
-			{Color: color.NRGBA{R: 0, G: 255, B: 0, A: 255}, Label: "Green", Size: 16, Clickable: &widget.Clickable{}},
-			{Color: color.NRGBA{R: 0, G: 0, B: 255, A: 255}, Label: "Blue", Size: 16, Clickable: &widget.Clickable{}},
+		colorButtons: []ColorButtonStyle{
+			{Color: color.NRGBA{R: 255, G: 0,   B: 0,   A: 255}, Label: "Red",    Clickable: &widget.Clickable{}, isSelected: true},
+			{Color: color.NRGBA{R: 255, G: 165, B: 0,   A: 255}, Label: "Orange", Clickable: &widget.Clickable{}},
+			{Color: color.NRGBA{R: 0,   G: 255, B: 0,   A: 255}, Label: "Green",  Clickable: &widget.Clickable{}},
+			{Color: color.NRGBA{R: 0,   G: 0,   B: 255, A: 255}, Label: "Blue",   Clickable: &widget.Clickable{}},
+			{Color: color.NRGBA{R: 255, G: 255, B: 0,   A: 255}, Label: "Yellow", Clickable: &widget.Clickable{}},
+			{Color: color.NRGBA{R: 128, G: 0,   B: 128, A: 255}, Label: "Purple", Clickable: &widget.Clickable{}},
 		},
 		selectedColorIndex: 0,
 		SelectedTool:       Brush,
@@ -93,8 +98,6 @@ func run(window *app.Window, state *ApplicationState) error {
 }
 
 func layoutSidebar(gtx layout.Context, state *ApplicationState, theme *material.Theme) layout.Dimensions {
-	inset := layout.UniformInset(defaultMargin)
-
 	if state.BrushButton.Clicked(gtx) {
 		state.SelectedTool = Brush
 		println("Current tool: ", state.SelectedTool)
@@ -110,7 +113,13 @@ func layoutSidebar(gtx layout.Context, state *ApplicationState, theme *material.
 		btn := &state.colorButtons[i]
 		wasClicked := btn.Clickable.Clicked(gtx)
 		if wasClicked {
+			for j := range state.colorButtons {
+				state.colorButtons[j].isSelected = false
+			}
+
 			state.selectedColorIndex = i
+			state.colorButtons[i].isSelected = true
+
 			println("Selected color: ", btn.Label)
 		}
 	}
@@ -120,7 +129,7 @@ func layoutSidebar(gtx layout.Context, state *ApplicationState, theme *material.
 		layout.Rigid(toolButton(theme, &state.BrushButton, BrushIcon, "Brush", state.SelectedTool == Brush)),
 		layout.Rigid(layout.Spacer{Height: unit.Dp(8)}.Layout),
 		layout.Rigid(toolButton(theme, &state.EraserButton, EraserIcon, "Eraser", state.SelectedTool == Eraser)),
-		layout.Rigid(layout.Spacer{Height: unit.Dp(8)}.Layout),
+		layout.Rigid(layout.Spacer{Height: unit.Dp(20)}.Layout),
 	}
 
 	// Color buttons
@@ -135,8 +144,14 @@ func layoutSidebar(gtx layout.Context, state *ApplicationState, theme *material.
 		)
 	}
 
-	return inset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-		return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)
+	return layout.Background{}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+		defer clip.Rect{Max: gtx.Constraints.Min}.Push(gtx.Ops).Pop()
+		paint.Fill(gtx.Ops, softBlue)
+		return layout.Dimensions{Size: gtx.Constraints.Min}
+	}, func(gtx layout.Context) layout.Dimensions {
+		return layout.UniformInset(defaultMargin).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)
+		})
 	})
 }
 
@@ -161,10 +176,7 @@ func layoutCanvas(gtx layout.Context, state *ApplicationState) layout.Dimensions
 
 	return layout.Stack{Alignment: layout.Center}.Layout(gtx,
 		layout.Expanded(func(gtx layout.Context) layout.Dimensions {
-			return widget.Border{Color: golangBlue, Width: unit.Dp(4)}.Layout(gtx,
-				func(gtx layout.Context) layout.Dimensions {
-					return layout.Dimensions{Size: gtx.Constraints.Max}
-				})
+			return layout.Dimensions{Size: gtx.Constraints.Max}
 		}),
 	)
 }
