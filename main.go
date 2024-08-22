@@ -150,7 +150,7 @@ func layoutSidebar(gtx layout.Context, state *ApplicationState, theme *material.
 		return layout.Dimensions{Size: gtx.Constraints.Min}
 	}, func(gtx layout.Context) layout.Dimensions {
 		return layout.UniformInset(defaultMargin).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-			return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)
+			return layout.Flex{Axis: layout.Vertical, Alignment: layout.Middle}.Layout(gtx, children...)
 		})
 	})
 }
