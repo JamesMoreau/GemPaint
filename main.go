@@ -13,12 +13,10 @@ import (
 	"gioui.org/widget/material"
 )
 
-// TODO: get the color borders working: try a bigger circle behind. also maybe remove the icon
-
 type ApplicationState struct {
 	theme *material.Theme
 
-	BrushButton widget.Clickable
+	BrushButton  widget.Clickable
 	EraserButton widget.Clickable
 	SelectedTool SelectedTool
 
@@ -33,21 +31,18 @@ const (
 	Eraser SelectedTool = "Eraser"
 )
 
-var golangBlue = color.NRGBA{R: 66, G: 133, B: 244, A: 255}
-var lightGray = color.NRGBA{R: 200, G: 200, B: 200, A: 255}
-
 var defaultMargin = unit.Dp(10)
 
 func main() {
 	state := ApplicationState{
 		theme: material.NewTheme(),
 		colorButtons: []ColorButton{
-			{Color: color.NRGBA{R: 255, G: 0, B: 0, A: 255}, Label: "Red",   Size: 16, Clickable: &widget.Clickable{}},
+			{Color: color.NRGBA{R: 255, G: 0, B: 0, A: 255}, Label: "Red", Size: 16, Clickable: &widget.Clickable{}},
 			{Color: color.NRGBA{R: 0, G: 255, B: 0, A: 255}, Label: "Green", Size: 16, Clickable: &widget.Clickable{}},
-			{Color: color.NRGBA{R: 0, G: 0, B: 255, A: 255}, Label: "Blue",  Size: 16, Clickable: &widget.Clickable{}},
+			{Color: color.NRGBA{R: 0, G: 0, B: 255, A: 255}, Label: "Blue", Size: 16, Clickable: &widget.Clickable{}},
 		},
 		selectedColorIndex: 0,
-		SelectedTool: Brush,
+		SelectedTool:       Brush,
 	}
 
 	go func() {
@@ -132,7 +127,10 @@ func layoutSidebar(gtx layout.Context, state *ApplicationState, theme *material.
 	for i := range state.colorButtons {
 		btn := &state.colorButtons[i]
 		children = append(children,
-			layout.Rigid(btn.Layout(gtx, theme)),
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return btn.Layout(gtx, theme)
+			}),
+
 			layout.Rigid(layout.Spacer{Height: unit.Dp(8)}.Layout),
 		)
 	}
