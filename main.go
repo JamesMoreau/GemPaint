@@ -71,8 +71,9 @@ func main() {
 			{Color: color.NRGBA{R: 255, G: 255, B: 0, A: 255}, Label: "Yellow", Clickable: &widget.Clickable{}},
 			{Color: color.NRGBA{R: 128, G: 0, B: 128, A: 255}, Label: "Purple", Clickable: &widget.Clickable{}},
 		},
-		selectedColorIndex: 0,
-		canvas:             &Canvas{width: 1000, height: 800, paint: make([]Circle, 0)},
+		selectedColorIndex:    0,
+		canvas:                &Canvas{width: 1000, height: 800, paint: make([]Circle, 0)},
+		mousePositionOnCanvas: mouseIsOutsideCanvas,
 	}
 
 	go func() {
@@ -244,37 +245,68 @@ func layoutCanvas(gtx layout.Context, state *ApplicationState) layout.Dimensions
 
 		case pointer.Press, pointer.Drag:
 			fmt.Printf("PRESS | DRAG: %+v\n", ev)
-			color := state.colorButtons[state.selectedColorIndex].Color
-			circle := Circle{X: ev.(pointer.Event).Position.X, Y: ev.(pointer.Event).Position.Y, Radius: state.cursorSize, Color: color}
-			state.canvas.paint = append(state.canvas.paint, circle)
+
+			switch state.selectedTool {
+			case Brush: // Draw a circle on the canvas
+				color := state.colorButtons[state.selectedColorIndex].Color
+				position := p.Position
+				circle := Circle{X: position.X, Y: position.Y, Radius: state.cursorSize, Color: color}
+				state.canvas.paint = append(state.canvas.paint, circle)
+
+			case Eraser: // "Erase" the paint by drawing a circle the same color as the canvas background.
+				position := p.Position
+				circle := Circle{X: position.X, Y: position.Y, Radius: state.cursorSize, Color: defaultCanvasBackground}
+				state.canvas.paint = append(state.canvas.paint, circle)
+
+			default:
+				fmt.Println("Error: Using unknown tool")
+			}
 
 		case pointer.Move:
 			fmt.Printf("MOVE: %+v\n", ev)
 			state.mousePositionOnCanvas = p.Position
 
 		default:
-			fmt.Printf("UNKNOWN: %+v\n", ev)
+			fmt.Printf("Error: UNKNOWN: %+v\n", ev)
 		}
 	}
 
 	// Render the canvas
-	return layout.Stack{Alignment: layout.Center}.Layout(gtx,
-		layout.Expanded(func(gtx layout.Context) layout.Dimensions {
-			// Draw the paint
-			for _, circle := range state.canvas.paint {
-				drawCircle(gtx, circle.X, circle.Y, circle.Radius, circle.Color)
-			}
+	return layout.Background{}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+		defer clip.Rect{Max: gtx.Constraints.Max}.Push(gtx.Ops).Pop()
+		paint.Fill(gtx.Ops, defaultCanvasBackground)
+		return layout.Dimensions{Size: gtx.Constraints.Max}
+	}, func(gtx layout.Context) layout.Dimensions {
+		return layout.Stack{Alignment: layout.Center}.Layout(gtx,
+			layout.Expanded(func(gtx layout.Context) layout.Dimensions {
+				// Draw the paint
+				for _, circle := range state.canvas.paint {
+					drawCircle(gtx, circle.X, circle.Y, circle.Radius, circle.Color)
+				}
 
-			// Draw the cursor
-			doDrawCursor := state.mousePositionOnCanvas != mouseIsOutsideCanvas
-			if doDrawCursor {
-				cursorColor := state.colorButtons[state.selectedColorIndex].Color
-				drawCircle(gtx, state.mousePositionOnCanvas.X, state.mousePositionOnCanvas.Y, state.cursorSize, cursorColor)
-			}
+				// Draw the cursor
+				doDrawCursor := state.mousePositionOnCanvas != mouseIsOutsideCanvas
+				if doDrawCursor {
+					var cursorColor color.NRGBA
 
-			return layout.Dimensions{Size: gtx.Constraints.Max}
-		}),
-	)
+					switch state.selectedTool {
+					case Brush:
+						cursorColor = state.colorButtons[state.selectedColorIndex].Color
+
+					case Eraser:
+						cursorColor = defaultCanvasBackground
+
+					default:
+						fmt.Println("Error: Using unknown tool")
+					}
+
+					drawCircle(gtx, state.mousePositionOnCanvas.X, state.mousePositionOnCanvas.Y, state.cursorSize, cursorColor)
+				}
+
+				return layout.Dimensions{Size: gtx.Constraints.Max}
+			}),
+		)
+	})
 }
 
 func drawCircle(gtx layout.Context, x, y, radius float32, fillcolor color.NRGBA) {
