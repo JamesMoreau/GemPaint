@@ -31,8 +31,8 @@ func (cb *ColorButtonStyle) Layout(gtx layout.Context, th *material.Theme) layou
 
 	// If the color is selected, draw a border around the button.
 
-	border_width := unit.Dp(2)
-	btn.Size = btn.Size - (border_width * 2) // Times 2 because it's on both sides.
+	borderWidth := unit.Dp(2)
+	btn.Size = btn.Size - (borderWidth * 2) // Times 2 because it's on both sides.
 
 	return layout.Background{}.Layout(gtx, 
 		func(gtx layout.Context) layout.Dimensions {
@@ -42,7 +42,7 @@ func (cb *ColorButtonStyle) Layout(gtx layout.Context, th *material.Theme) layou
 			return layout.Dimensions{Size: gtx.Constraints.Min}
 		},
 		func(gtx layout.Context) layout.Dimensions {
-			return layout.UniformInset(border_width).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			return layout.UniformInset(borderWidth).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 				return btn.Layout(gtx)
 		})
 	})

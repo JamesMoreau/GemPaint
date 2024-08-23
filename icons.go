@@ -16,3 +16,8 @@ var EraserIcon *widget.Icon = func() *widget.Icon {
 	return icon
 }()
 
+var ClearIcon *widget.Icon = func() *widget.Icon {
+	icon, _ := widget.NewIcon(icons.ActionDelete)
+	return icon
+}()
+
