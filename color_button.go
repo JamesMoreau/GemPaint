@@ -24,14 +24,15 @@ type ColorButtonStyle struct {
 func (cb *ColorButtonStyle) Layout(gtx layout.Context, th *material.Theme) layout.Dimensions {
 	btn := material.IconButton(th, cb.Clickable, nil, cb.Label)
 	btn.Background = cb.Color
-	// btn.Size = unit.Dp(14)
 	
 	if !cb.isSelected {
 		return btn.Layout(gtx)
 	}
 
+	// If the color is selected, draw a border around the button.
+
 	border_width := unit.Dp(2)
-	btn.Size = btn.Size - border_width
+	btn.Size = btn.Size - (border_width * 2) // Times 2 because it's on both sides.
 
 	return layout.Background{}.Layout(gtx, 
 		func(gtx layout.Context) layout.Dimensions {
