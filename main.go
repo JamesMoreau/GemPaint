@@ -27,23 +27,25 @@ type ApplicationState struct {
 	clearButton  widget.Clickable
 	selectedTool SelectedTool
 
+	cursorSize float32
+
 	colorButtons       []ColorButtonStyle
 	selectedColorIndex int
 
-	canvas *Canvas
+	canvas                *Canvas
 	mousePositionOnCanvas f32.Point
 }
 
 type Canvas struct {
-    width  int
-    height int
-    paint  []Circle
+	width  int
+	height int
+	paint  []Circle
 }
 
 type Circle struct {
-    X, Y   float32
-    Radius float32
-    Color  color.NRGBA
+	X, Y   float32
+	Radius float32
+	Color  color.NRGBA
 }
 
 type SelectedTool string
@@ -58,18 +60,19 @@ var defaultMargin = unit.Dp(10)
 func main() {
 	state := new(ApplicationState) // store the state on the heap
 	*state = ApplicationState{
-		theme: material.NewTheme(),
+		theme:        material.NewTheme(),
+		selectedTool: Brush,
+		cursorSize:   10,
 		colorButtons: []ColorButtonStyle{
-			{Color: color.NRGBA{R: 255, G: 0,   B: 0,   A: 255}, Label: "Red",    Clickable: &widget.Clickable{}, isSelected: true},
-			{Color: color.NRGBA{R: 255, G: 165, B: 0,   A: 255}, Label: "Orange", Clickable: &widget.Clickable{}},
-			{Color: color.NRGBA{R: 0,   G: 255, B: 0,   A: 255}, Label: "Green",  Clickable: &widget.Clickable{}},
-			{Color: color.NRGBA{R: 0,   G: 0,   B: 255, A: 255}, Label: "Blue",   Clickable: &widget.Clickable{}},
-			{Color: color.NRGBA{R: 255, G: 255, B: 0,   A: 255}, Label: "Yellow", Clickable: &widget.Clickable{}},
-			{Color: color.NRGBA{R: 128, G: 0,   B: 128, A: 255}, Label: "Purple", Clickable: &widget.Clickable{}},
+			{Color: color.NRGBA{R: 255, G: 0, B: 0, A: 255}, Label: "Red", Clickable: &widget.Clickable{}, isSelected: true},
+			{Color: color.NRGBA{R: 255, G: 165, B: 0, A: 255}, Label: "Orange", Clickable: &widget.Clickable{}},
+			{Color: color.NRGBA{R: 0, G: 255, B: 0, A: 255}, Label: "Green", Clickable: &widget.Clickable{}},
+			{Color: color.NRGBA{R: 0, G: 0, B: 255, A: 255}, Label: "Blue", Clickable: &widget.Clickable{}},
+			{Color: color.NRGBA{R: 255, G: 255, B: 0, A: 255}, Label: "Yellow", Clickable: &widget.Clickable{}},
+			{Color: color.NRGBA{R: 128, G: 0, B: 128, A: 255}, Label: "Purple", Clickable: &widget.Clickable{}},
 		},
 		selectedColorIndex: 0,
-		selectedTool: Brush,
-		canvas: &Canvas{width: 1000, height: 800, paint: make([]Circle, 0)},
+		canvas:             &Canvas{width: 1000, height: 800, paint: make([]Circle, 0)},
 	}
 
 	go func() {
@@ -98,7 +101,6 @@ func run(window *app.Window, state *ApplicationState) error {
 		case app.DestroyEvent:
 			return e.Err
 		case app.FrameEvent:
-			// This graphics context is used for managing the rendering state.
 			gtx := app.NewContext(&ops, e)
 
 			myLayout := layout.Flex{Axis: layout.Horizontal, Spacing: layout.SpaceBetween}
@@ -179,7 +181,7 @@ func layoutSidebar(gtx layout.Context, state *ApplicationState, theme *material.
 	}
 
 	// Other buttons
-	children = append(children, 
+	children = append(children,
 		layout.Rigid(layout.Spacer{Height: unit.Dp(20)}.Layout),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return toolButton(gtx, theme, &state.clearButton, ClearIcon, "Clear", false)
@@ -215,54 +217,64 @@ func layoutCanvas(gtx layout.Context, state *ApplicationState) layout.Dimensions
 	event.Op(gtx.Ops, tag)
 	defer r.Pop()
 
-	for {	
+	for {
 		ev, ok := gtx.Event(
-		  pointer.Filter{
-			Target: tag,
-			Kinds:  pointer.Press | pointer.Drag | pointer.Move,
-		  },
+			pointer.Filter{
+				Target: tag,
+				Kinds:  pointer.Press | pointer.Drag | pointer.Move | pointer.Leave | pointer.Enter,
+			},
 		)
 
 		if !ok {
-		  break
+			break
 		}
 
 		p, ok := ev.(pointer.Event)
 		if !ok {
 			continue
 		}
-		
+
 		switch p.Kind {
-			case pointer.Press, pointer.Drag:
-				fmt.Printf("PRESS | DRAG: %+v\n", ev)
-				color := state.colorButtons[state.selectedColorIndex].Color
-				circle := Circle{X: ev.(pointer.Event).Position.X, Y: ev.(pointer.Event).Position.Y, Radius: 10, Color: color}
-				state.canvas.paint = append(state.canvas.paint, circle)
+		case pointer.Leave:
+			fmt.Printf("LEAVE: %+v\n", ev)
+			state.mousePositionOnCanvas = mouseIsOutsideCanvas
 
-			case pointer.Move:
-				fmt.Printf("MOVE: %+v\n", ev)
-				state.mousePositionOnCanvas = p.Position
+		case pointer.Enter:
+			fmt.Printf("ENTER: %+v\n", ev)
 
-			default:
-				fmt.Printf("UNKNOWN: %+v\n", ev)
+		case pointer.Press, pointer.Drag:
+			fmt.Printf("PRESS | DRAG: %+v\n", ev)
+			color := state.colorButtons[state.selectedColorIndex].Color
+			circle := Circle{X: ev.(pointer.Event).Position.X, Y: ev.(pointer.Event).Position.Y, Radius: state.cursorSize, Color: color}
+			state.canvas.paint = append(state.canvas.paint, circle)
+
+		case pointer.Move:
+			fmt.Printf("MOVE: %+v\n", ev)
+			state.mousePositionOnCanvas = p.Position
+
+		default:
+			fmt.Printf("UNKNOWN: %+v\n", ev)
 		}
 	}
 
 	// Render the canvas
-    return layout.Stack{Alignment: layout.Center}.Layout(gtx,
-        layout.Expanded(func(gtx layout.Context) layout.Dimensions {
+	return layout.Stack{Alignment: layout.Center}.Layout(gtx,
+		layout.Expanded(func(gtx layout.Context) layout.Dimensions {
 			// Draw the paint
 			for _, circle := range state.canvas.paint {
 				drawCircle(gtx, circle.X, circle.Y, circle.Radius, circle.Color)
 			}
 
 			// Draw the cursor
-			cursorColor := state.colorButtons[state.selectedColorIndex].Color
-			drawCircle(gtx, state.mousePositionOnCanvas.X, state.mousePositionOnCanvas.Y, 10, cursorColor)
+			doDrawCursor := state.mousePositionOnCanvas != mouseIsOutsideCanvas
+			if doDrawCursor {
+				cursorColor := state.colorButtons[state.selectedColorIndex].Color
+				drawCircle(gtx, state.mousePositionOnCanvas.X, state.mousePositionOnCanvas.Y, state.cursorSize, cursorColor)
+			}
 
-            return layout.Dimensions{Size: gtx.Constraints.Max}
-        }),
-    )
+			return layout.Dimensions{Size: gtx.Constraints.Max}
+		}),
+	)
 }
 
 func drawCircle(gtx layout.Context, x, y, radius float32, fillcolor color.NRGBA) {
