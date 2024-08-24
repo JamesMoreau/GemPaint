@@ -6,6 +6,7 @@ import (
 	"log"
 	"math"
 	"os"
+	"time"
 
 	"gioui.org/app"
 	"gioui.org/f32"
@@ -19,6 +20,8 @@ import (
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 )
+
+var debug = false
 
 type ApplicationState struct {
 	theme *material.Theme
@@ -59,6 +62,10 @@ const (
 var defaultMargin = unit.Dp(10)
 
 func main() {
+	// Get arguments
+	debugVariable := os.Getenv("DEBUG")
+	debug = debugVariable == "true"
+
 	state := new(ApplicationState) // store the state on the heap
 	*state = ApplicationState{
 		theme:        material.NewTheme(),
@@ -98,23 +105,47 @@ func run(window *app.Window, state *ApplicationState) error {
 	theme := material.NewTheme()
 	var ops op.Ops
 
+	var lastFrame time.Time
+	var fps float64
+
 	for {
 		switch e := window.Event().(type) {
 		case app.DestroyEvent:
 			return e.Err
 		case app.FrameEvent:
+
+			// Calculate FPS
+			now := time.Now()
+			if !lastFrame.IsZero() {
+				elapsed := now.Sub(lastFrame).Seconds()
+				fps = 1.0 / elapsed
+			}
+			lastFrame = now
+			fmt.Println("FPS: ", fps)
+
 			gtx := app.NewContext(&ops, e)
 
-			myLayout := layout.Flex{Axis: layout.Horizontal, Spacing: layout.SpaceBetween}
-			myLayout.Layout(gtx,
-				layout.Rigid(
+			layout.Stack{Alignment: layout.NE}.Layout(gtx,
+				layout.Expanded(
 					func(gtx layout.Context) layout.Dimensions {
-						return layoutSidebar(gtx, state, theme)
+						return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
+							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+									return layoutSidebar(gtx, state, theme)
+								},
+							),
+							layout.Rigid(
+								func(gtx layout.Context) layout.Dimensions {
+									return layoutCanvas(gtx, state)
+								},
+							),
+						)
 					},
 				),
-				layout.Rigid(
+				layout.Stacked(
 					func(gtx layout.Context) layout.Dimensions {
-						return layoutCanvas(gtx, state)
+						return layout.UniformInset(32).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+							return material.Body1(theme, fmt.Sprintf("🐭: %.2f, %.2f", state.mousePositionOnCanvas.X, state.mousePositionOnCanvas.Y)).Layout(gtx)
+						})
 					},
 				),
 			)
@@ -129,17 +160,23 @@ func layoutSidebar(gtx layout.Context, state *ApplicationState, theme *material.
 	// Handle tool button clicks
 	if state.brushButton.Clicked(gtx) {
 		state.selectedTool = Brush
-		fmt.Println("Current tool: ", state.selectedTool)
+		if debug {
+			fmt.Println("Current tool: ", state.selectedTool)
+		}
 	}
 
 	if state.eraserButton.Clicked(gtx) {
 		state.selectedTool = Eraser
-		fmt.Println("Current tool: ", state.selectedTool)
+		if debug {
+			fmt.Println("Current tool: ", state.selectedTool)
+		}
 	}
 
 	if state.clearButton.Clicked(gtx) {
 		state.canvas.paint = make([]Circle, 0)
-		fmt.Println("Canvas cleared")
+		if debug {
+			fmt.Println("Canvas cleared")
+		}
 	}
 
 	// Handle color button clicks
@@ -154,7 +191,9 @@ func layoutSidebar(gtx layout.Context, state *ApplicationState, theme *material.
 			state.selectedColorIndex = i
 			state.colorButtons[i].isSelected = true
 
-			fmt.Println("Selected color: ", btn.Label)
+			if debug {
+				fmt.Println("Selected color: ", btn.Label)
+			}
 		}
 	}
 
@@ -251,7 +290,9 @@ func layoutCanvas(gtx layout.Context, state *ApplicationState) layout.Dimensions
 			state.mousePositionOnCanvas = p.Position
 
 		default:
-			fmt.Printf("Error: UNKNOWN: %+v\n", ev)
+			if debug {
+				fmt.Printf("Error: UNKNOWN: %+v\n", ev)
+			}
 		}
 
 		// fmt.Printf("Pointer Event: %+v\n", ev)
@@ -283,7 +324,9 @@ func layoutCanvas(gtx layout.Context, state *ApplicationState) layout.Dimensions
 						cursorColor = defaultCanvasBackground
 
 					default:
-						fmt.Println("Error: Using unknown tool")
+						if debug {
+							fmt.Println("Error: Using unknown tool")
+						}
 					}
 
 					drawCircle(gtx, state.mousePositionOnCanvas.X, state.mousePositionOnCanvas.Y, state.cursorSize, cursorColor)
@@ -318,15 +361,15 @@ func handlePaint(state *ApplicationState, p pointer.Event) {
 			return
 		}
 
-		previousPosition := state.canvas.paint[paintLength - 2]
-		fmt.Println("previousPosition: ", previousPosition)
-		fmt.Println("position: ", position)
+		previousPosition := state.canvas.paint[paintLength-2]
+		// fmt.Println("previousPosition: ", previousPosition)
+		// fmt.Println("position: ", position)
 		dx := position.X - previousPosition.X
 		dy := position.Y - previousPosition.Y
 		fmt.Println("dx: ", dx, "dy: ", dy)
 		distance := float32(math.Sqrt(float64(dx*dx + dy*dy)))
 
-		fmt.Println("distance: ", distance)
+		// fmt.Println("distance: ", distance)
 
 		// Check if the distance is great enough to warrant interpolation.
 		threshould := state.cursorSize / 2
@@ -350,7 +393,9 @@ func handlePaint(state *ApplicationState, p pointer.Event) {
 		state.canvas.paint = append(state.canvas.paint, circle)
 
 	default:
-		fmt.Println("Error: Using unknown tool")
+		if debug {
+			fmt.Println("Error: Using unknown tool")
+		}
 		return
 	}
 
