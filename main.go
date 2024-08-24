@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"image/color"
 	"log"
+	"math"
 	"os"
 
 	"gioui.org/app"
@@ -214,6 +215,8 @@ func toolButton(gtx layout.Context, th *material.Theme, btn *widget.Clickable, i
 var tag = new(bool)
 
 func layoutCanvas(gtx layout.Context, state *ApplicationState) layout.Dimensions {
+
+	// Handle user input
 	r := clip.Rect{Max: gtx.Constraints.Max}.Push(gtx.Ops)
 	event.Op(gtx.Ops, tag)
 	defer r.Pop()
@@ -230,45 +233,28 @@ func layoutCanvas(gtx layout.Context, state *ApplicationState) layout.Dimensions
 			break
 		}
 
-		p, ok := ev.(pointer.Event)
+		p, ok := ev.(pointer.Event) // type assertion
 		if !ok {
 			continue
 		}
 
 		switch p.Kind {
 		case pointer.Leave:
-			fmt.Printf("LEAVE: %+v\n", ev)
 			state.mousePositionOnCanvas = mouseIsOutsideCanvas
 
 		case pointer.Enter:
-			fmt.Printf("ENTER: %+v\n", ev)
 
 		case pointer.Press, pointer.Drag:
-			fmt.Printf("PRESS | DRAG: %+v\n", ev)
-
-			switch state.selectedTool {
-			case Brush: // Draw a circle on the canvas
-				color := state.colorButtons[state.selectedColorIndex].Color
-				position := p.Position
-				circle := Circle{X: position.X, Y: position.Y, Radius: state.cursorSize, Color: color}
-				state.canvas.paint = append(state.canvas.paint, circle)
-
-			case Eraser: // "Erase" the paint by drawing a circle the same color as the canvas background.
-				position := p.Position
-				circle := Circle{X: position.X, Y: position.Y, Radius: state.cursorSize, Color: defaultCanvasBackground}
-				state.canvas.paint = append(state.canvas.paint, circle)
-
-			default:
-				fmt.Println("Error: Using unknown tool")
-			}
+			handlePaint(state, p)
 
 		case pointer.Move:
-			fmt.Printf("MOVE: %+v\n", ev)
 			state.mousePositionOnCanvas = p.Position
 
 		default:
 			fmt.Printf("Error: UNKNOWN: %+v\n", ev)
 		}
+
+		// fmt.Printf("Pointer Event: %+v\n", ev)
 	}
 
 	// Render the canvas
@@ -307,6 +293,67 @@ func layoutCanvas(gtx layout.Context, state *ApplicationState) layout.Dimensions
 			}),
 		)
 	})
+}
+
+func handlePaint(state *ApplicationState, p pointer.Event) {
+	isPaintEvent := p.Kind == pointer.Press || p.Kind == pointer.Drag
+	if !isPaintEvent {
+		return
+	}
+
+	switch state.selectedTool {
+	case Brush: // Draw a circle on the canvas
+		color := state.colorButtons[state.selectedColorIndex].Color
+		position := p.Position
+		circle := Circle{X: position.X, Y: position.Y, Radius: state.cursorSize, Color: color}
+		state.canvas.paint = append(state.canvas.paint, circle)
+
+		// If the mouse is moved quickly, we need to add interpolated paint between the last and current mouse positions.
+		if p.Kind != pointer.Drag {
+			return
+		}
+
+		paintLength := len(state.canvas.paint)
+		if paintLength == 0 {
+			return
+		}
+
+		previousPosition := state.canvas.paint[paintLength - 2]
+		fmt.Println("previousPosition: ", previousPosition)
+		fmt.Println("position: ", position)
+		dx := position.X - previousPosition.X
+		dy := position.Y - previousPosition.Y
+		fmt.Println("dx: ", dx, "dy: ", dy)
+		distance := float32(math.Sqrt(float64(dx*dx + dy*dy)))
+
+		fmt.Println("distance: ", distance)
+
+		// Check if the distance is great enough to warrant interpolation.
+		threshould := state.cursorSize / 2
+		if distance < threshould {
+			return
+		}
+
+		// Add interpolated circles between the last and current mouse position.
+		numInterpolatedCircles := int(distance / threshould)
+		for i := 0; i < numInterpolatedCircles; i++ {
+			interpolatedX := previousPosition.X + dx*float32(i)/float32(numInterpolatedCircles)
+			interpolatedY := previousPosition.Y + dy*float32(i)/float32(numInterpolatedCircles)
+			interpolatedCircle := Circle{X: interpolatedX, Y: interpolatedY, Radius: state.cursorSize, Color: color}
+			state.canvas.paint = append(state.canvas.paint, interpolatedCircle)
+			fmt.Println("Interpolated circle added")
+		}
+
+	case Eraser: // "Erase" the paint by drawing a circle the same color as the canvas background.
+		position := p.Position
+		circle := Circle{X: position.X, Y: position.Y, Radius: state.cursorSize, Color: defaultCanvasBackground}
+		state.canvas.paint = append(state.canvas.paint, circle)
+
+	default:
+		fmt.Println("Error: Using unknown tool")
+		return
+	}
+
 }
 
 func drawCircle(gtx layout.Context, x, y, radius float32, fillcolor color.NRGBA) {
