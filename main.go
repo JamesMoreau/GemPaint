@@ -6,7 +6,6 @@ import (
 	"log"
 	"math"
 	"os"
-	"time"
 
 	"gioui.org/app"
 	"gioui.org/f32"
@@ -31,7 +30,7 @@ type ApplicationState struct {
 	clearButton  widget.Clickable
 	selectedTool SelectedTool
 
-	cursorSize float32
+	cursorRadius float32
 
 	colorButtons       []ColorButtonStyle
 	selectedColorIndex int
@@ -63,14 +62,22 @@ var defaultMargin = unit.Dp(10)
 
 func main() {
 	// Get arguments
-	debugVariable := os.Getenv("DEBUG")
-	debug = debugVariable == "true"
+	args := os.Args
+	for _, arg := range args {
+		if arg == "-debug" {
+			debug = true
+			fmt.Println("Debug mode enabled")
+			continue
+		}
+
+		fmt.Println("Unknown argument: ", arg)
+	}
 
 	state := new(ApplicationState) // store the state on the heap
 	*state = ApplicationState{
 		theme:        material.NewTheme(),
 		selectedTool: Brush,
-		cursorSize:   10,
+		cursorRadius:   10,
 		colorButtons: []ColorButtonStyle{
 			{Color: color.NRGBA{R: 255, G: 0, B: 0, A: 255}, Label: "Red", Clickable: &widget.Clickable{}, isSelected: true},
 			{Color: color.NRGBA{R: 255, G: 165, B: 0, A: 255}, Label: "Orange", Clickable: &widget.Clickable{}},
@@ -105,19 +112,7 @@ func run(window *app.Window, state *ApplicationState) error {
 	theme := material.NewTheme()
 	var ops op.Ops
 
-	var lastFrame time.Time
-	var fps float64
-
 	for {
-		// Calculate FPS
-		now := time.Now()
-		if !lastFrame.IsZero() {
-			elapsed := now.Sub(lastFrame).Seconds()
-			fps = 1.0 / elapsed
-		}
-		lastFrame = now
-		fmt.Println("FPS: ", fps)
-
 		switch e := window.Event().(type) {
 		case app.DestroyEvent:
 			return e.Err
@@ -128,7 +123,8 @@ func run(window *app.Window, state *ApplicationState) error {
 				layout.Expanded(
 					func(gtx layout.Context) layout.Dimensions {
 						return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
-							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							layout.Rigid(
+								func(gtx layout.Context) layout.Dimensions {
 									return layoutSidebar(gtx, state, theme)
 								},
 							),
@@ -274,18 +270,18 @@ func layoutCanvas(gtx layout.Context, state *ApplicationState) layout.Dimensions
 		if !ok {
 			continue
 		}
-		
+
 		switch p.Kind {
 		case pointer.Leave:
 			state.mousePositionOnCanvas = mouseIsOutsideCanvas
 			gtx.Execute(op.InvalidateCmd{}) // Redraws the ui.
-			
+
 		case pointer.Enter:
 			state.mousePositionOnCanvas = p.Position
 
 		case pointer.Press, pointer.Drag:
 			state.mousePositionOnCanvas = p.Position
-			handlePaint(state, p)
+			handlePaint(gtx, state, p)
 
 		case pointer.Move:
 			state.mousePositionOnCanvas = p.Position
@@ -296,7 +292,7 @@ func layoutCanvas(gtx layout.Context, state *ApplicationState) layout.Dimensions
 			}
 		}
 
-		fmt.Printf("Pointer Event: %+v\n", ev)
+		// fmt.Printf("Pointer Event: %+v\n", ev)
 	}
 
 	// Render the canvas
@@ -330,7 +326,7 @@ func layoutCanvas(gtx layout.Context, state *ApplicationState) layout.Dimensions
 						}
 					}
 
-					drawCircle(gtx, state.mousePositionOnCanvas.X, state.mousePositionOnCanvas.Y, state.cursorSize, cursorColor)
+					drawCircle(gtx, state.mousePositionOnCanvas.X, state.mousePositionOnCanvas.Y, state.cursorRadius, cursorColor)
 				}
 
 				return layout.Dimensions{Size: gtx.Constraints.Max}
@@ -339,8 +335,8 @@ func layoutCanvas(gtx layout.Context, state *ApplicationState) layout.Dimensions
 	})
 }
 
-func handlePaint(state *ApplicationState, p pointer.Event) {
-	isPaintEvent := p.Kind == pointer.Press || p.Kind == pointer.Drag
+func handlePaint(gtx layout.Context, state *ApplicationState, p pointer.Event) {
+	isPaintEvent := p.Kind == pointer.Press || p.Kind == pointer.Drag // sanity check
 	if !isPaintEvent {
 		return
 	}
@@ -349,7 +345,7 @@ func handlePaint(state *ApplicationState, p pointer.Event) {
 	case Brush: // Draw a circle on the canvas
 		color := state.colorButtons[state.selectedColorIndex].Color
 		position := p.Position
-		circle := Circle{X: position.X, Y: position.Y, Radius: state.cursorSize, Color: color}
+		circle := Circle{X: position.X, Y: position.Y, Radius: state.cursorRadius, Color: color}
 		state.canvas.paint = append(state.canvas.paint, circle)
 
 		// If the mouse is moved quickly, we need to add interpolated paint between the last and current mouse positions.
@@ -358,39 +354,28 @@ func handlePaint(state *ApplicationState, p pointer.Event) {
 		}
 
 		paintLength := len(state.canvas.paint)
-		if paintLength == 0 {
+		if paintLength == 0 { // no point interpolating if there's no previous paint
 			return
 		}
 
-		previousPosition := state.canvas.paint[paintLength-2]
-		// fmt.Println("previousPosition: ", previousPosition)
-		// fmt.Println("position: ", position)
+		previousPosition := state.canvas.paint[paintLength - 2]
 		dx := position.X - previousPosition.X
 		dy := position.Y - previousPosition.Y
-		// fmt.Println("dx: ", dx, "dy: ", dy)
 		distance := float32(math.Sqrt(float64(dx*dx + dy*dy)))
-
-		// fmt.Println("distance: ", distance)
+		fmt.Println("distance: ", distance)
 
 		// Check if the distance is great enough to warrant interpolation.
-		threshould := state.cursorSize / 2
+		threshould := state.cursorRadius / 2
 		if distance < threshould {
 			return
 		}
 
-		// Add interpolated circles between the last and current mouse position.
-		numInterpolatedCircles := int(distance / threshould)
-		for i := 0; i < numInterpolatedCircles; i++ {
-			interpolatedX := previousPosition.X + dx*float32(i)/float32(numInterpolatedCircles)
-			interpolatedY := previousPosition.Y + dy*float32(i)/float32(numInterpolatedCircles)
-			interpolatedCircle := Circle{X: interpolatedX, Y: interpolatedY, Radius: state.cursorSize, Color: color}
-			state.canvas.paint = append(state.canvas.paint, interpolatedCircle)
-			// fmt.Println("Interpolated circle added")
-		}
+		// Add an interpolated line between the last and current mouse position.
+		drawLine(gtx, previousPosition.X, previousPosition.Y, position.X, position.Y, state.cursorRadius, golangBlue)
 
 	case Eraser: // "Erase" the paint by drawing a circle the same color as the canvas background.
 		position := p.Position
-		circle := Circle{X: position.X, Y: position.Y, Radius: state.cursorSize, Color: defaultCanvasBackground}
+		circle := Circle{X: position.X, Y: position.Y, Radius: state.cursorRadius, Color: defaultCanvasBackground}
 		state.canvas.paint = append(state.canvas.paint, circle)
 
 	default:
@@ -416,5 +401,16 @@ func drawCircle(gtx layout.Context, x, y, radius float32, fillcolor color.NRGBA)
 	stack := clip.Outline{Path: path.End()}.Op().Push(gtx.Ops)
 	paint.ColorOp{Color: fillcolor}.Add(gtx.Ops)
 	paint.PaintOp{}.Add(gtx.Ops)
+	stack.Pop()
+}
+
+// AbsLine makes a line from (x0,y0) to (x1, y1) using absolute coordinates
+func drawLine(gtx layout.Context, x0, y0, x1, y1, size float32, fillcolor color.NRGBA) {
+	path := new(clip.Path)
+	path.Begin(gtx.Ops)
+	path.MoveTo(f32.Point{X: x0, Y: y0})
+	path.LineTo(f32.Point{X: x1, Y: y1})
+	stack := clip.Stroke{Path: path.End(), Width: size}.Op().Push(gtx.Ops)
+	paint.Fill(gtx.Ops, fillcolor)
 	stack.Pop()
 }
