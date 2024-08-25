@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"image"
 	"image/color"
 	"log"
 	"math"
@@ -79,11 +80,11 @@ func main() {
 		selectedTool: Brush,
 		cursorRadius:   10,
 		colorButtons: []ColorButtonStyle{
-			{Color: color.NRGBA{R: 255, G: 0, B: 0, A: 255}, Label: "Red", Clickable: &widget.Clickable{}, isSelected: true},
-			{Color: color.NRGBA{R: 255, G: 165, B: 0, A: 255}, Label: "Orange", Clickable: &widget.Clickable{}},
-			{Color: color.NRGBA{R: 0, G: 255, B: 0, A: 255}, Label: "Green", Clickable: &widget.Clickable{}},
-			{Color: color.NRGBA{R: 0, G: 0, B: 255, A: 255}, Label: "Blue", Clickable: &widget.Clickable{}},
-			{Color: color.NRGBA{R: 255, G: 255, B: 0, A: 255}, Label: "Yellow", Clickable: &widget.Clickable{}},
+			{Color: red, Label: "Red", Clickable: &widget.Clickable{}, isSelected: true},
+			{Color: orange, Label: "Orange", Clickable: &widget.Clickable{}},
+			{Color: green, Label: "Green", Clickable: &widget.Clickable{}},
+			{Color: blue, Label: "Blue", Clickable: &widget.Clickable{}},
+			{Color: yellow, Label: "Yellow", Clickable: &widget.Clickable{}},
 			{Color: color.NRGBA{R: 128, G: 0, B: 128, A: 255}, Label: "Purple", Clickable: &widget.Clickable{}},
 		},
 		selectedColorIndex:    0,
