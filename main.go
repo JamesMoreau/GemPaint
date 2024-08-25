@@ -109,20 +109,19 @@ func run(window *app.Window, state *ApplicationState) error {
 	var fps float64
 
 	for {
+		// Calculate FPS
+		now := time.Now()
+		if !lastFrame.IsZero() {
+			elapsed := now.Sub(lastFrame).Seconds()
+			fps = 1.0 / elapsed
+		}
+		lastFrame = now
+		fmt.Println("FPS: ", fps)
+
 		switch e := window.Event().(type) {
 		case app.DestroyEvent:
 			return e.Err
 		case app.FrameEvent:
-
-			// Calculate FPS
-			now := time.Now()
-			if !lastFrame.IsZero() {
-				elapsed := now.Sub(lastFrame).Seconds()
-				fps = 1.0 / elapsed
-			}
-			lastFrame = now
-			fmt.Println("FPS: ", fps)
-
 			gtx := app.NewContext(&ops, e)
 
 			layout.Stack{Alignment: layout.NE}.Layout(gtx,
@@ -230,12 +229,12 @@ func layoutSidebar(gtx layout.Context, state *ApplicationState, theme *material.
 	)
 
 	return layout.Background{}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-		defer clip.Rect{Max: gtx.Constraints.Min}.Push(gtx.Ops).Pop()
+		defer clip.Rect{Max: gtx.Constraints.Max}.Push(gtx.Ops).Pop()
 		paint.Fill(gtx.Ops, softBlue)
 		return layout.Dimensions{Size: gtx.Constraints.Min}
 	}, func(gtx layout.Context) layout.Dimensions {
 		return layout.UniformInset(defaultMargin).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-			return layout.Flex{Axis: layout.Vertical, Alignment: layout.Middle}.Layout(gtx, children...)
+			return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)
 		})
 	})
 }
@@ -256,9 +255,8 @@ var tag = new(bool)
 func layoutCanvas(gtx layout.Context, state *ApplicationState) layout.Dimensions {
 
 	// Handle user input
-	r := clip.Rect{Max: gtx.Constraints.Max}.Push(gtx.Ops)
+	defer clip.Rect{Max: gtx.Constraints.Max}.Push(gtx.Ops).Pop()
 	event.Op(gtx.Ops, tag)
-	defer r.Pop()
 
 	for {
 		ev, ok := gtx.Event(
@@ -276,14 +274,17 @@ func layoutCanvas(gtx layout.Context, state *ApplicationState) layout.Dimensions
 		if !ok {
 			continue
 		}
-
+		
 		switch p.Kind {
 		case pointer.Leave:
 			state.mousePositionOnCanvas = mouseIsOutsideCanvas
-
+			gtx.Execute(op.InvalidateCmd{}) // Redraws the ui.
+			
 		case pointer.Enter:
+			state.mousePositionOnCanvas = p.Position
 
 		case pointer.Press, pointer.Drag:
+			state.mousePositionOnCanvas = p.Position
 			handlePaint(state, p)
 
 		case pointer.Move:
@@ -295,7 +296,7 @@ func layoutCanvas(gtx layout.Context, state *ApplicationState) layout.Dimensions
 			}
 		}
 
-		// fmt.Printf("Pointer Event: %+v\n", ev)
+		fmt.Printf("Pointer Event: %+v\n", ev)
 	}
 
 	// Render the canvas
@@ -366,7 +367,7 @@ func handlePaint(state *ApplicationState, p pointer.Event) {
 		// fmt.Println("position: ", position)
 		dx := position.X - previousPosition.X
 		dy := position.Y - previousPosition.Y
-		fmt.Println("dx: ", dx, "dy: ", dy)
+		// fmt.Println("dx: ", dx, "dy: ", dy)
 		distance := float32(math.Sqrt(float64(dx*dx + dy*dy)))
 
 		// fmt.Println("distance: ", distance)
@@ -384,7 +385,7 @@ func handlePaint(state *ApplicationState, p pointer.Event) {
 			interpolatedY := previousPosition.Y + dy*float32(i)/float32(numInterpolatedCircles)
 			interpolatedCircle := Circle{X: interpolatedX, Y: interpolatedY, Radius: state.cursorSize, Color: color}
 			state.canvas.paint = append(state.canvas.paint, interpolatedCircle)
-			fmt.Println("Interpolated circle added")
+			// fmt.Println("Interpolated circle added")
 		}
 
 	case Eraser: // "Erase" the paint by drawing a circle the same color as the canvas background.
