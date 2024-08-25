@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"image"
 	"image/color"
 	"log"
 	"math"
@@ -70,8 +69,6 @@ func main() {
 			fmt.Println("Debug mode enabled")
 			continue
 		}
-
-		fmt.Println("Unknown argument: ", arg)
 	}
 
 	state := new(ApplicationState) // store the state on the heap
