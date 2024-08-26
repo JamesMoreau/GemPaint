@@ -1,6 +1,7 @@
 package main
 
 import (
+	"image"
 	"image/color"
 
 	"gioui.org/f32"
@@ -20,10 +21,13 @@ var blue = color.NRGBA{R: 0, G: 0, B: 255, A: 255}
 var yellow = color.NRGBA{R: 255, G: 255, B: 0, A: 255}
 var purple = color.NRGBA{R: 128, G: 0, B: 128, A: 255}
 
-
-var defaultCanvasBackground = color.NRGBA{R: 255, G: 255, B: 255, A: 255}
+var defaultCanvasDimensions = image.Rect(0, 0, 2081, 1256)
+var defaultCanvasBackground = lightGray
+var defaultCanvasColor = color.NRGBA{R: 0, G: 0, B: 0, A: 255}
 
 var mouseIsOutsideCanvas = f32.Point{X: -1, Y: -1}
+
+var defaultCursorRadius = 100
 
 var BrushIcon *widget.Icon = func() *widget.Icon {
 	icon, _ := widget.NewIcon(icons.ImageBrush)
