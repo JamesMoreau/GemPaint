@@ -5,7 +5,6 @@ import (
 	"image"
 	"image/color"
 	"log"
-	"math"
 	"os"
 
 	"gioui.org/app"
@@ -346,17 +345,22 @@ func handlePaint(gtx layout.Context, state *ApplicationState, p pointer.Event) {
 		position := image.Point{X: int(p.Position.X), Y: int(p.Position.Y)}
 
 		rSquared := state.cursorRadius * state.cursorRadius
-		for x := position.X - state.cursorRadius; x < position.X+state.cursorRadius; x++ { // Loop through the bounding box of the circle
-			for y := position.Y - state.cursorRadius; y < position.Y+state.cursorRadius; y++ {
+		for x := position.X - state.cursorRadius; x <= position.X+state.cursorRadius; x++ { // Loop through the bounding box of the circle, ie, the square
+			for y := position.Y - state.cursorRadius; y <= position.Y+state.cursorRadius; y++ {
 
-				// Check if the point is acutally within the circle
-				pixelIsWithinCircle := math.Pow(float64(x-position.X), 2)+math.Pow(float64(y-position.Y), 2) < float64(rSquared)
+				// Check if the pixel is within the circle
+				dx, dy := x-position.X, y-position.Y
+				pixelIsWithinCircle := dx*dx+dy*dy < rSquared
 				if !pixelIsWithinCircle {
 					continue
 				}
 
-				// Paint the pixel
-				state.canvas.Set(position.X, position.Y, color)
+				// Ensure the coordinates are within bounds before painting
+				if x < 0 || x >= state.canvas.Bounds().Dx() || y < 0 || y >= state.canvas.Bounds().Dy() {
+					continue
+				}
+				
+				state.canvas.Set(x, y, color)
 			}
 		}
 
