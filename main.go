@@ -58,6 +58,7 @@ func main() {
 		}
 	}
 
+	// Initialize the application state
 	state := new(ApplicationState) // store the state on the heap
 	*state = ApplicationState{
 		theme:        material.NewTheme(),
@@ -76,13 +77,7 @@ func main() {
 		mousePositionOnCanvas: mouseIsOutsideCanvas,
 	}
 
-	// debug
-	state.canvas.Set(0, 0, yellow)
-	for x := state.canvas.Rect.Min.X; x < state.canvas.Rect.Max.X; x++ {
-		for y := state.canvas.Rect.Min.Y; y < state.canvas.Rect.Max.Y; y++ {
-			state.canvas.Set(x, y, green)
-		}
-	}
+	fillImageWithColor(state.canvas, golangBlue)
 
 	go func() {
 		window := new(app.Window)
@@ -162,6 +157,7 @@ func layoutSidebar(gtx layout.Context, state *ApplicationState, theme *material.
 
 	if state.clearButton.Clicked(gtx) {
 		state.canvas = image.NewRGBA(defaultCanvasDimensions)
+		fillImageWithColor(state.canvas, defaultCanvasBackground)
 		if debug {
 			fmt.Println("Canvas cleared")
 		}
@@ -239,7 +235,7 @@ func toolButton(gtx layout.Context, th *material.Theme, btn *widget.Clickable, i
 	return iconButton.Layout(gtx)
 }
 
-var tag = new(bool)
+var tag = new(bool) // tag is a unique identifier for the canvas
 
 func layoutCanvas(gtx layout.Context, state *ApplicationState) layout.Dimensions {
 
@@ -251,87 +247,89 @@ func layoutCanvas(gtx layout.Context, state *ApplicationState) layout.Dimensions
 			return layout.Dimensions{Size: gtx.Constraints.Max}
 		},
 		func(gtx layout.Context) layout.Dimensions {
-			return layout.Stack{Alignment: layout.Center}.Layout(gtx,
-				layout.Expanded(func(gtx layout.Context) layout.Dimensions {
+			return widget.Border{Color: color.NRGBA{R: 0, G: 0, B: 0, A: 0}, Width: unit.Dp(8)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions { // TODO: remove this border
 
-					// Handle user input. We only want to handle pointer events inside the canvas image.
-					defer clip.Rect{Max: gtx.Constraints.Max}.Push(gtx.Ops).Pop()
-					event.Op(gtx.Ops, tag)
+				return layout.Stack{Alignment: layout.NW}.Layout(gtx,
+					layout.Expanded(func(gtx layout.Context) layout.Dimensions {
 
-					for {
-						ev, ok := gtx.Event(
-							pointer.Filter{
-								Target: tag,
-								Kinds:  pointer.Press | pointer.Drag | pointer.Move | pointer.Leave | pointer.Enter,
-							},
-						)
+						// Handle user input. We only want to handle pointer events inside the canvas image.
+						defer clip.Rect{Max: gtx.Constraints.Max}.Push(gtx.Ops).Pop()
+						event.Op(gtx.Ops, tag)
 
-						if !ok {
-							break
-						}
+						for {
+							ev, ok := gtx.Event(
+								pointer.Filter{
+									Target: tag,
+									Kinds:  pointer.Press | pointer.Drag | pointer.Move | pointer.Leave | pointer.Enter,
+								},
+							)
 
-						p, ok := ev.(pointer.Event) // type assertion
-						if !ok {
-							continue
-						}
-
-						switch p.Kind {
-						case pointer.Leave:
-							state.mousePositionOnCanvas = mouseIsOutsideCanvas
-							gtx.Execute(op.InvalidateCmd{}) // Redraws the ui.
-
-						case pointer.Enter:
-							state.mousePositionOnCanvas = p.Position
-
-						case pointer.Press, pointer.Drag:
-							state.mousePositionOnCanvas = p.Position
-							handlePaint(gtx, state, p)
-
-						case pointer.Move:
-							state.mousePositionOnCanvas = p.Position
-
-						default:
-							if debug {
-								fmt.Printf("Error: UNKNOWN: %+v\n", ev)
+							if !ok {
+								break
 							}
-						}
 
-						fmt.Printf("Pointer Event: %+v\n", ev)
-					}
-
-					// Draw the canvas
-					op := paint.NewImageOp(state.canvas)
-
-					return widget.Image{
-						Src:      op,
-						Fit:      widget.Unscaled,
-						Position: layout.NW,
-						Scale:    1.0,
-					}.Layout(gtx)
-				}),
-				layout.Expanded(func(gtx layout.Context) layout.Dimensions {
-					doDrawCursor := state.mousePositionOnCanvas != mouseIsOutsideCanvas
-					if doDrawCursor {
-						// var cursorColor color.NRGBA
-
-						switch state.selectedTool {
-						case Brush:
-							//TODO: Implement brush cursor
-
-						case Eraser:
-							// TODO: Implement eraser cursor
-
-						default:
-							if debug {
-								fmt.Println("Error: Using unknown tool")
+							p, ok := ev.(pointer.Event) // type assertion
+							if !ok {
+								continue
 							}
+
+							switch p.Kind {
+							case pointer.Leave:
+								state.mousePositionOnCanvas = mouseIsOutsideCanvas
+								gtx.Execute(op.InvalidateCmd{}) // Redraws the ui.
+
+							case pointer.Enter:
+								state.mousePositionOnCanvas = p.Position
+
+							case pointer.Press, pointer.Drag:
+								state.mousePositionOnCanvas = p.Position
+								handlePaint(gtx, state, p)
+
+							case pointer.Move:
+								state.mousePositionOnCanvas = p.Position
+
+							default:
+								if debug {
+									fmt.Printf("Error: UNKNOWN: %+v\n", ev)
+								}
+							}
+
+							fmt.Printf("Pointer Event: %+v\n", ev)
 						}
 
-					}
+						// Draw the canvas
+						op := paint.NewImageOp(state.canvas)
 
-					return layout.Dimensions{Size: gtx.Constraints.Max}
-				}),
-			)
+						return widget.Image{
+							Src:   op,
+							Fit:   widget.Unscaled,
+							Scale: 1.0,
+						}.Layout(gtx)
+					}),
+					layout.Expanded(func(gtx layout.Context) layout.Dimensions {
+						doDrawCursor := state.mousePositionOnCanvas != mouseIsOutsideCanvas
+						if doDrawCursor {
+							// var cursorColor color.NRGBA
+
+							switch state.selectedTool {
+							case Brush:
+								//TODO: Implement brush cursor
+
+							case Eraser:
+								// TODO: Implement eraser cursor
+
+							default:
+								if debug {
+									fmt.Println("Error: Using unknown tool")
+								}
+							}
+
+						}
+
+						return layout.Dimensions{Size: gtx.Constraints.Max}
+					}),
+				)
+			})
 		},
 	)
 }
@@ -343,7 +341,7 @@ func handlePaint(gtx layout.Context, state *ApplicationState, p pointer.Event) {
 	}
 
 	switch state.selectedTool {
-	case Brush: // Draw a circle on the canvas
+	case Brush:
 		color := state.colorButtons[state.selectedColorIndex].Color
 		position := image.Point{X: int(p.Position.X), Y: int(p.Position.Y)}
 
@@ -362,7 +360,7 @@ func handlePaint(gtx layout.Context, state *ApplicationState, p pointer.Event) {
 			}
 		}
 
-	case Eraser: // "Erase" the paint by drawing a circle the same color as the canvas background.
+	case Eraser:
 		// position := p.Position
 		// circle := Circle{X: position.X, Y: position.Y, Radius: state.cursorRadius, Color: defaultCanvasBackground}
 		// state.canvas.paint = append(state.canvas.paint, circle)
@@ -374,4 +372,16 @@ func handlePaint(gtx layout.Context, state *ApplicationState, p pointer.Event) {
 		return
 	}
 
+}
+
+func fillImageWithColor(img *image.RGBA, col color.Color) {
+	if img == nil {
+		return
+	}
+
+	for x := img.Rect.Min.X; x < img.Rect.Max.X; x++ {
+		for y := img.Rect.Min.Y; y < img.Rect.Max.Y; y++ {
+			img.Set(x, y, col)
+		}
+	}
 }
