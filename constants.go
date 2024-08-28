@@ -28,7 +28,10 @@ var defaultCanvasColor = color.NRGBA{R: 255, G: 255, B: 255, A: 255}
 
 var mouseIsOutsideCanvas = f32.Point{X: -1, Y: -1}
 
-var defaultCursorRadius = 24
+var defaultCursorRadius = 20
+var minimumCursorRadius = 10
+var maximumCursorRadius = 100
+var cursorRadiusChangeStep = 10
 
 var BrushIcon *widget.Icon = func() *widget.Icon {
 	icon, _ := widget.NewIcon(icons.ImageBrush)
@@ -42,5 +45,15 @@ var EraserIcon *widget.Icon = func() *widget.Icon {
 
 var ClearIcon *widget.Icon = func() *widget.Icon {
 	icon, _ := widget.NewIcon(icons.ActionDelete)
+	return icon
+}()
+
+var AddIcon *widget.Icon = func() *widget.Icon {
+	icon, _ := widget.NewIcon(icons.ContentAdd)
+	return icon
+}()
+
+var MinusIcon *widget.Icon = func() *widget.Icon {
+	icon, _ := widget.NewIcon(icons.ContentRemove)
 	return icon
 }()

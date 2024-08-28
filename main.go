@@ -28,9 +28,13 @@ type GemPaintState struct {
 
 	brushButton  widget.Clickable
 	eraserButton widget.Clickable
-	clearButton  widget.Clickable
 	selectedTool SelectedTool
+	
+	increaseButton widget.Clickable
+	decreaseButton widget.Clickable
 	cursorRadius int
+
+	clearButton  widget.Clickable
 
 	colorButtons       []ColorButtonStyle
 	selectedColorIndex int
@@ -158,6 +162,25 @@ func layoutSidebar(gtx layout.Context, state *GemPaintState, theme *material.The
 		}
 	}
 
+	if state.increaseButton.Clicked(gtx) {
+		if state.cursorRadius < maximumCursorRadius {
+			state.cursorRadius += cursorRadiusChangeStep
+		}
+		if debug {
+			fmt.Println("Cursor radius: ", state.cursorRadius)
+		}
+	}
+
+	if state.decreaseButton.Clicked(gtx) {
+		if state.cursorRadius > minimumCursorRadius {
+			state.cursorRadius -= cursorRadiusChangeStep
+		}
+		if debug {
+			fmt.Println("Cursor radius: ", state.cursorRadius)
+		}
+	}
+
+
 	if state.clearButton.Clicked(gtx) {
 		state.canvas = image.NewRGBA(defaultCanvasDimensions)
 		fillImageWithColor(state.canvas, defaultCanvasColor)
@@ -187,11 +210,19 @@ func layoutSidebar(gtx layout.Context, state *GemPaintState, theme *material.The
 	// Tool buttons
 	children := []layout.FlexChild{
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return toolButton(gtx, theme, &state.brushButton, BrushIcon, "Brush", state.selectedTool == Brush)
+			return ToolButton(theme, &state.brushButton, BrushIcon, state.selectedTool == Brush, golangBlue, lightGray, "Brush").Layout(gtx)
 		}),
 		layout.Rigid(layout.Spacer{Height: unit.Dp(8)}.Layout),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return toolButton(gtx, theme, &state.eraserButton, EraserIcon, "Eraser", state.selectedTool == Eraser)
+			return ToolButton(theme, &state.eraserButton, EraserIcon, state.selectedTool == Eraser, golangBlue, lightGray, "Brush").Layout(gtx)
+		}),
+		layout.Rigid(layout.Spacer{Height: unit.Dp(8)}.Layout),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return ToolButton(theme, &state.increaseButton, AddIcon, false, golangBlue, lightGray, "Increase").Layout(gtx)
+		}),
+		layout.Rigid(layout.Spacer{Height: unit.Dp(8)}.Layout),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return ToolButton(theme, &state.decreaseButton, MinusIcon, false, golangBlue, lightGray, "Decrease").Layout(gtx)
 		}),
 		layout.Rigid(layout.Spacer{Height: unit.Dp(20)}.Layout),
 	}
@@ -212,7 +243,7 @@ func layoutSidebar(gtx layout.Context, state *GemPaintState, theme *material.The
 	children = append(children,
 		layout.Rigid(layout.Spacer{Height: unit.Dp(20)}.Layout),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return toolButton(gtx, theme, &state.clearButton, ClearIcon, "Clear", false)
+			return ToolButton(theme, &state.clearButton, ClearIcon, false, golangBlue, lightGray, "Clear").Layout(gtx)
 		}),
 	)
 
@@ -225,17 +256,6 @@ func layoutSidebar(gtx layout.Context, state *GemPaintState, theme *material.The
 			return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)
 		})
 	})
-}
-
-func toolButton(gtx layout.Context, th *material.Theme, btn *widget.Clickable, icon *widget.Icon, label string, selected bool) layout.Dimensions {
-	iconButton := material.IconButton(th, btn, icon, label)
-	iconButton.Background = lightGray
-
-	if selected {
-		iconButton.Background = golangBlue
-	}
-
-	return iconButton.Layout(gtx)
 }
 
 var tag = new(bool) // tag is a unique identifier for the canvas
@@ -292,7 +312,7 @@ func layoutCanvas(gtx layout.Context, state *GemPaintState) layout.Dimensions {
 					}
 				}
 
-				fmt.Printf("Pointer Event: %+v\n", ev)
+				// fmt.Printf("Pointer Event: %+v\n", ev)
 			}
 
 			// Draw the canvas

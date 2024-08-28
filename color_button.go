@@ -21,6 +21,15 @@ type ColorButtonStyle struct {
 	OnClick    func()
 }
 
+func ColorButton(color color.NRGBA, label string, onClick func()) ColorButtonStyle {
+	return ColorButtonStyle{
+		Color:     color,
+		Label:     label,
+		Clickable: new(widget.Clickable),
+		OnClick:   onClick,
+	}
+}
+
 func (cb *ColorButtonStyle) Layout(gtx layout.Context, th *material.Theme) layout.Dimensions {
 	btn := material.IconButton(th, cb.Clickable, nil, cb.Label)
 	btn.Background = cb.Color
@@ -30,7 +39,6 @@ func (cb *ColorButtonStyle) Layout(gtx layout.Context, th *material.Theme) layou
 	}
 
 	// If the color is selected, draw a border around the button.
-
 	borderWidth := unit.Dp(2)
 	btn.Size = btn.Size - (borderWidth * 2) // Times 2 because it's on both sides.
 
