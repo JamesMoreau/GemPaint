@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"image"
 	"image/color"
-	"image/jpeg"
 	"image/png"
 	"log"
 	"math"
@@ -50,7 +49,6 @@ type GemPaintState struct {
 	expl *explorer.Explorer
 	img ImageResult
 	saveErr error
-	imgChan chan ImageResult
 	saveChan chan error
 }
 
@@ -62,8 +60,6 @@ const (
 )
 
 type ImageResult struct {
-	Error  error
-	Format string
 	Image  image.Image
 }
 
@@ -121,7 +117,6 @@ func main() {
 func run(window *app.Window, state *GemPaintState) error {
 	theme := material.NewTheme()
 
-	state.imgChan = make(chan ImageResult)
 	state.saveChan = make(chan error)
 
 	events := make(chan event.Event)
@@ -143,8 +138,6 @@ func run(window *app.Window, state *GemPaintState) error {
 	for {
 
 		select {
-		case state.img = <-state.imgChan:
-			window.Invalidate()
 		case state.saveErr = <-state.saveChan:
 			window.Invalidate()
 		case e := <-events:
