@@ -57,3 +57,9 @@ var MinusIcon *widget.Icon = func() *widget.Icon {
 	icon, _ := widget.NewIcon(icons.ContentRemove)
 	return icon
 }()
+
+var SaveIcon *widget.Icon = func() *widget.Icon {
+	icon, _ := widget.NewIcon(icons.ContentSave)
+	return icon
+}()
+

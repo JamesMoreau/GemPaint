@@ -19,6 +19,7 @@ import (
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
+	"gioui.org/x/explorer"
 )
 
 var debug = false
@@ -35,6 +36,7 @@ type GemPaintState struct {
 	cursorRadius   int
 
 	clearButton widget.Clickable
+	saveButton  widget.Clickable
 
 	colorButtons       []ColorButtonStyle
 	selectedColorIndex int
@@ -42,6 +44,8 @@ type GemPaintState struct {
 	canvas                *image.RGBA
 	mousePositionOnCanvas f32.Point
 	previousPaintPosition f32.Point
+
+	expl *explorer.Explorer
 }
 
 type SelectedTool string
@@ -50,6 +54,12 @@ const (
 	Brush  SelectedTool = "Brush"
 	Eraser SelectedTool = "Eraser"
 )
+
+type ImageResult struct {
+	Error  error
+	Format string
+	Image  image.Image
+}
 
 func main() {
 	// Get arguments
@@ -63,13 +73,13 @@ func main() {
 	}
 
 	// Initialize the application state
-	state := new(GemPaintState) // store the state on the heap
-	*state = GemPaintState{
+	state := new(GemPaintState) // store the state on the heap 
+	*state = GemPaintState{// TODO: move this to run()
 		theme:        material.NewTheme(),
 		selectedTool: Brush,
 		cursorRadius: defaultCursorRadius,
 		colorButtons: []ColorButtonStyle{
-			{Color: red, Label: "Red", Clickable: &widget.Clickable{}, isSelected: true},
+			{Color: red, Label: "Red", Clickable: &widget.Clickable{}, isSelected: true}, //TODO: what needs to be initialized?
 			{Color: orange, Label: "Orange", Clickable: &widget.Clickable{}},
 			{Color: green, Label: "Green", Clickable: &widget.Clickable{}},
 			{Color: blue, Label: "Blue", Clickable: &widget.Clickable{}},
@@ -88,6 +98,7 @@ func main() {
 		window := new(app.Window)
 		window.Option(app.Title("GemBoard"))
 		window.Option(app.Size(unit.Dp(1000), unit.Dp(800)))
+		state.expl = explorer.NewExplorer(window)
 
 		// Run the program
 		err := run(window, state)
@@ -106,6 +117,8 @@ func run(window *app.Window, state *GemPaintState) error {
 	var ops op.Ops
 
 	for {
+		e := window.Event()
+		state.expl.ListenEvents(e)
 		switch e := window.Event().(type) {
 		case app.DestroyEvent:
 			return e.Err
@@ -188,6 +201,13 @@ func layoutSidebar(gtx layout.Context, state *GemPaintState, theme *material.The
 		}
 	}
 
+	if state.saveButton.Clicked(gtx) { // TODO: Add a save dialog
+
+		if debug {
+			fmt.Println("Canvas saved")
+		}
+	}
+
 	// Handle color button clicks
 	for i := range state.colorButtons {
 		btn := &state.colorButtons[i]
@@ -243,6 +263,10 @@ func layoutSidebar(gtx layout.Context, state *GemPaintState, theme *material.The
 		layout.Rigid(layout.Spacer{Height: unit.Dp(20)}.Layout),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return ToolButton(theme, &state.clearButton, ClearIcon, false, golangBlue, lightGray, "Clear").Layout(gtx)
+		}),
+		layout.Rigid(layout.Spacer{Height: unit.Dp(8)}.Layout),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return ToolButton(theme, &state.saveButton, SaveIcon, false, golangBlue, lightGray, "Save").Layout(gtx)
 		}),
 	)
 
