@@ -46,10 +46,10 @@ type GemPaintState struct {
 	mousePositionOnCanvas f32.Point
 	previousPaintPosition f32.Point
 
-	expl *explorer.Explorer
-	img ImageResult
-	saveErr error
-	saveChan chan error
+	expl      *explorer.Explorer
+	saveImage image.RGBA
+	saveErr   error
+	saveChan  chan error
 }
 
 type SelectedTool string
@@ -58,10 +58,6 @@ const (
 	Brush  SelectedTool = "Brush"
 	Eraser SelectedTool = "Eraser"
 )
-
-type ImageResult struct {
-	Image  image.Image
-}
 
 func main() {
 	// Get arguments
@@ -230,12 +226,12 @@ func layoutSidebar(gtx layout.Context, state *GemPaintState, theme *material.The
 	}
 
 	if state.saveButton.Clicked(gtx) {
-		go func(img ImageResult) {
+		go func(img image.RGBA) {
 			if state.canvas == nil {
 				state.saveChan <- fmt.Errorf("no image to save")
 				return
 			}
-	
+
 			extension := "png"
 			file, err := state.expl.CreateFile("gem." + extension)
 			if err != nil {
@@ -245,12 +241,12 @@ func layoutSidebar(gtx layout.Context, state *GemPaintState, theme *material.The
 			defer func() {
 				state.saveChan <- file.Close()
 			}()
-	
+
 			if err := png.Encode(file, state.canvas); err != nil {
 				state.saveChan <- fmt.Errorf("failed encoding PNG file: %w", err)
 				return
 			}
-		}(state.img)
+		}(state.saveImage)
 	}
 
 	// Handle color button clicks
