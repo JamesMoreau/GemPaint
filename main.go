@@ -29,12 +29,12 @@ type GemPaintState struct {
 	brushButton  widget.Clickable
 	eraserButton widget.Clickable
 	selectedTool SelectedTool
-	
+
 	increaseButton widget.Clickable
 	decreaseButton widget.Clickable
-	cursorRadius int
+	cursorRadius   int
 
-	clearButton  widget.Clickable
+	clearButton widget.Clickable
 
 	colorButtons       []ColorButtonStyle
 	selectedColorIndex int
@@ -179,7 +179,6 @@ func layoutSidebar(gtx layout.Context, state *GemPaintState, theme *material.The
 			fmt.Println("Cursor radius: ", state.cursorRadius)
 		}
 	}
-
 
 	if state.clearButton.Clicked(gtx) {
 		state.canvas = image.NewRGBA(defaultCanvasDimensions)
@@ -330,25 +329,25 @@ func layoutCanvas(gtx layout.Context, state *GemPaintState) layout.Dimensions {
 			if !doDrawCursor {
 				return layout.Dimensions{Size: gtx.Constraints.Min}
 			}
-		
+
 			var cursorColor color.NRGBA
-		
+
 			switch state.selectedTool {
 			case Brush:
 				cursorColor = state.colorButtons[state.selectedColorIndex].Color
 				drawCircle(gtx, state.mousePositionOnCanvas.X, state.mousePositionOnCanvas.Y, float32(state.cursorRadius), cursorColor)
-		
+
 			case Eraser:
 				cursorColor = defaultCanvasColor
 				drawCircle(gtx, state.mousePositionOnCanvas.X, state.mousePositionOnCanvas.Y, float32(state.cursorRadius), lightGray)
-				drawCircle(gtx, state.mousePositionOnCanvas.X, state.mousePositionOnCanvas.Y, float32(state.cursorRadius - 1), cursorColor)
-		
+				drawCircle(gtx, state.mousePositionOnCanvas.X, state.mousePositionOnCanvas.Y, float32(state.cursorRadius-1), cursorColor)
+
 			default:
 				if debug {
 					fmt.Println("Error: Using unknown tool")
 				}
 			}
-		
+
 			return layout.Dimensions{Size: gtx.Constraints.Min}
 		}),
 	)
@@ -377,7 +376,7 @@ func handlePaint(state *GemPaintState, p pointer.Event) {
 
 		// Update at the end of the paint operation
 		state.previousPaintPosition = p.Position
-		
+
 	case Eraser:
 		color := defaultCanvasColor
 		positionOnCanvas := image.Point{X: int(p.Position.X), Y: int(p.Position.Y)}

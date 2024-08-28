@@ -33,7 +33,7 @@ func ColorButton(color color.NRGBA, label string, onClick func()) ColorButtonSty
 func (cb *ColorButtonStyle) Layout(gtx layout.Context, th *material.Theme) layout.Dimensions {
 	btn := material.IconButton(th, cb.Clickable, nil, cb.Label)
 	btn.Background = cb.Color
-	
+
 	if !cb.isSelected {
 		return btn.Layout(gtx)
 	}
@@ -42,7 +42,7 @@ func (cb *ColorButtonStyle) Layout(gtx layout.Context, th *material.Theme) layou
 	borderWidth := unit.Dp(2)
 	btn.Size = btn.Size - (borderWidth * 2) // Times 2 because it's on both sides.
 
-	return layout.Background{}.Layout(gtx, 
+	return layout.Background{}.Layout(gtx,
 		func(gtx layout.Context) layout.Dimensions {
 			rr := (gtx.Constraints.Min.X + gtx.Constraints.Min.Y) / 4
 			defer clip.UniformRRect(image.Rectangle{Max: gtx.Constraints.Min}, rr).Push(gtx.Ops).Pop()
@@ -52,6 +52,6 @@ func (cb *ColorButtonStyle) Layout(gtx layout.Context, th *material.Theme) layou
 		func(gtx layout.Context) layout.Dimensions {
 			return layout.UniformInset(borderWidth).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 				return btn.Layout(gtx)
+			})
 		})
-	})
 }
