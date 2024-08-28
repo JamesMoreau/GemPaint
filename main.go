@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"image"
 	"image/color"
+	"image/jpeg"
+	"image/png"
 	"log"
 	"math"
 	"os"
@@ -46,6 +48,10 @@ type GemPaintState struct {
 	previousPaintPosition f32.Point
 
 	expl *explorer.Explorer
+	img ImageResult
+	saveErr error
+	imgChan chan ImageResult
+	saveChan chan error
 }
 
 type SelectedTool string
@@ -73,8 +79,8 @@ func main() {
 	}
 
 	// Initialize the application state
-	state := new(GemPaintState) // store the state on the heap 
-	*state = GemPaintState{// TODO: move this to run()
+	state := new(GemPaintState) // store the state on the heap
+	*state = GemPaintState{     // TODO: move this to run()
 		theme:        material.NewTheme(),
 		selectedTool: Brush,
 		cursorRadius: defaultCursorRadius,
@@ -114,45 +120,74 @@ func main() {
 
 func run(window *app.Window, state *GemPaintState) error {
 	theme := material.NewTheme()
+
+	state.imgChan = make(chan ImageResult)
+	state.saveChan = make(chan error)
+
+	events := make(chan event.Event)
+	acks := make(chan struct{})
+
+	go func() {
+		for {
+			ev := window.Event()
+			events <- ev
+			<-acks
+			if _, ok := ev.(app.DestroyEvent); ok {
+				return
+			}
+		}
+	}()
+
 	var ops op.Ops
 
 	for {
-		e := window.Event()
-		state.expl.ListenEvents(e)
-		switch e := window.Event().(type) {
-		case app.DestroyEvent:
-			return e.Err
-		case app.FrameEvent:
-			gtx := app.NewContext(&ops, e)
 
-			layout.Stack{Alignment: layout.NE}.Layout(gtx,
-				layout.Expanded(
-					func(gtx layout.Context) layout.Dimensions {
-						return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
-							layout.Rigid(
-								func(gtx layout.Context) layout.Dimensions {
-									return layoutSidebar(gtx, state, theme)
-								},
-							),
-							layout.Rigid(
-								func(gtx layout.Context) layout.Dimensions {
-									return layoutCanvas(gtx, state)
-								},
-							),
-						)
-					},
-				),
-				layout.Stacked(
-					func(gtx layout.Context) layout.Dimensions {
-						return layout.UniformInset(32).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-							return material.Body1(theme, fmt.Sprintf("🐭: %.2f, %.2f", state.mousePositionOnCanvas.X, state.mousePositionOnCanvas.Y)).Layout(gtx)
-						})
-					},
-				),
-			)
+		select {
+		case state.img = <-state.imgChan:
+			window.Invalidate()
+		case state.saveErr = <-state.saveChan:
+			window.Invalidate()
+		case e := <-events:
+			state.expl.ListenEvents(e)
+			switch e := e.(type) {
+			case app.DestroyEvent:
+				acks <- struct{}{}
+				return e.Err
+			case app.FrameEvent:
+				gtx := app.NewContext(&ops, e)
 
-			e.Frame(gtx.Ops)
+				layout.Stack{Alignment: layout.NE}.Layout(gtx,
+					layout.Expanded(
+						func(gtx layout.Context) layout.Dimensions {
+							return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
+								layout.Rigid(
+									func(gtx layout.Context) layout.Dimensions {
+										return layoutSidebar(gtx, state, theme)
+									},
+								),
+								layout.Rigid(
+									func(gtx layout.Context) layout.Dimensions {
+										return layoutCanvas(gtx, state)
+									},
+								),
+							)
+						},
+					),
+					layout.Stacked(
+						func(gtx layout.Context) layout.Dimensions {
+							return layout.UniformInset(32).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+								return material.Body1(theme, fmt.Sprintf("🐭: %.2f, %.2f", state.mousePositionOnCanvas.X, state.mousePositionOnCanvas.Y)).Layout(gtx)
+							})
+						},
+					),
+				)
+
+				e.Frame(gtx.Ops)
+			}
+			acks <- struct{}{}
+
 		}
+
 	}
 }
 
@@ -201,11 +236,28 @@ func layoutSidebar(gtx layout.Context, state *GemPaintState, theme *material.The
 		}
 	}
 
-	if state.saveButton.Clicked(gtx) { // TODO: Add a save dialog
-
-		if debug {
-			fmt.Println("Canvas saved")
-		}
+	if state.saveButton.Clicked(gtx) {
+		go func(img ImageResult) {
+			if state.canvas == nil {
+				state.saveChan <- fmt.Errorf("no image to save")
+				return
+			}
+	
+			extension := "png"
+			file, err := state.expl.CreateFile("gem." + extension)
+			if err != nil {
+				state.saveChan <- fmt.Errorf("failed exporting image file: %w", err)
+				return
+			}
+			defer func() {
+				state.saveChan <- file.Close()
+			}()
+	
+			if err := png.Encode(file, state.canvas); err != nil {
+				state.saveChan <- fmt.Errorf("failed encoding PNG file: %w", err)
+				return
+			}
+		}(state.img)
 	}
 
 	// Handle color button clicks
