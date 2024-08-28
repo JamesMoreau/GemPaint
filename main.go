@@ -30,7 +30,6 @@ type GemPaintState struct {
 	eraserButton widget.Clickable
 	clearButton  widget.Clickable
 	selectedTool SelectedTool
-
 	cursorRadius int
 
 	colorButtons       []ColorButtonStyle
@@ -71,7 +70,8 @@ func main() {
 			{Color: green, Label: "Green", Clickable: &widget.Clickable{}},
 			{Color: blue, Label: "Blue", Clickable: &widget.Clickable{}},
 			{Color: yellow, Label: "Yellow", Clickable: &widget.Clickable{}},
-			{Color: color.NRGBA{R: 128, G: 0, B: 128, A: 255}, Label: "Purple", Clickable: &widget.Clickable{}},
+			{Color: purple, Label: "Purple", Clickable: &widget.Clickable{}},
+			{Color: darkGray, Label: "Gray", Clickable: &widget.Clickable{}},
 		},
 		selectedColorIndex:    0,
 		canvas:                image.NewRGBA(defaultCanvasDimensions),
@@ -176,7 +176,7 @@ func layoutSidebar(gtx layout.Context, state *GemPaintState, theme *material.The
 			}
 
 			state.selectedColorIndex = i
-			state.colorButtons[i].isSelected = true
+			btn.isSelected = true
 
 			if debug {
 				fmt.Println("Selected color: ", btn.Label)
@@ -310,25 +310,29 @@ func layoutCanvas(gtx layout.Context, state *GemPaintState) layout.Dimensions {
 				}),
 				layout.Expanded(func(gtx layout.Context) layout.Dimensions {
 					doDrawCursor := state.mousePositionOnCanvas != mouseIsOutsideCanvas
-					if doDrawCursor {
-						// var cursorColor color.NRGBA
-
-						switch state.selectedTool {
-						case Brush:
-							//TODO: Implement brush cursor
-
-						case Eraser:
-							// TODO: Implement eraser cursor
-
-						default:
-							if debug {
-								fmt.Println("Error: Using unknown tool")
-							}
-						}
-
+					if !doDrawCursor {
+						return layout.Dimensions{Size: gtx.Constraints.Min}
 					}
 
-					return layout.Dimensions{Size: gtx.Constraints.Max}
+					var cursorColor color.NRGBA
+
+					switch state.selectedTool {
+					case Brush:
+						cursorColor = state.colorButtons[state.selectedColorIndex].Color
+						drawCircle(gtx, state.mousePositionOnCanvas.X, state.mousePositionOnCanvas.Y, float32(state.cursorRadius), cursorColor)
+
+					case Eraser:
+						cursorColor = defaultCanvasColor
+						drawCircle(gtx, state.mousePositionOnCanvas.X, state.mousePositionOnCanvas.Y, float32(state.cursorRadius), lightGray)
+						drawCircle(gtx, state.mousePositionOnCanvas.X, state.mousePositionOnCanvas.Y, float32(state.cursorRadius - 1), cursorColor)
+
+					default:
+						if debug {
+							fmt.Println("Error: Using unknown tool")
+						}
+					}
+
+					return layout.Dimensions{Size: gtx.Constraints.Min}
 				}),
 			)
 		},
@@ -351,28 +355,23 @@ func handlePaint(state *GemPaintState, p pointer.Event) {
 		// To fix this, we need to fill in pixels between the previous and current mouse positions, that is, use interpolation.
 		previousPaintPositionIsOutsideCanvas := state.previousPaintPosition == mouseIsOutsideCanvas
 		if !previousPaintPositionIsOutsideCanvas && p.Kind == pointer.Drag {
-			dx := p.Position.X - state.previousPaintPosition.X
-			dy := p.Position.Y - state.previousPaintPosition.Y
-			distance := float32(math.Sqrt(float64(dx*dx + dy*dy)))
-
-			step := float32(state.cursorRadius) / 4.0 // Step size based on brush radius
-			if distance > step {
-				// Interpolate points between prevPos and position
-				for t := float32(0.0); t <= distance; t += step {
-					interpX := int(state.previousPaintPosition.X + t / distance*dx)
-					interpY := int(state.previousPaintPosition.Y + t / distance*dy)
-					interpPosition := image.Point{X: interpX, Y: interpY}
-
-					// Paint the interpolated circle
-					paintCircle(state.canvas, interpPosition, state.cursorRadius, color)
-				}
-			}
+			interpolatePaintBetweenPoints(state.previousPaintPosition, p.Position, state.canvas, state.cursorRadius, color)
 		}
 
 		// Update at the end of the paint operation
 		state.previousPaintPosition = p.Position
 		
 	case Eraser:
+		color := defaultCanvasColor
+		positionOnCanvas := image.Point{X: int(p.Position.X), Y: int(p.Position.Y)}
+		paintCircle(state.canvas, positionOnCanvas, state.cursorRadius, color)
+
+		previousPaintPositionIsOutsideCanvas := state.previousPaintPosition == mouseIsOutsideCanvas
+		if !previousPaintPositionIsOutsideCanvas && p.Kind == pointer.Drag {
+			interpolatePaintBetweenPoints(state.previousPaintPosition, p.Position, state.canvas, state.cursorRadius, color)
+		}
+
+		state.previousPaintPosition = p.Position
 
 	default:
 		if debug {
@@ -383,12 +382,29 @@ func handlePaint(state *GemPaintState, p pointer.Event) {
 
 }
 
+func interpolatePaintBetweenPoints(start, end f32.Point, canvas *image.RGBA, radius int, color color.Color) {
+	dx := end.X - start.X
+	dy := end.Y - start.Y
+	distance := float32(math.Sqrt(float64(dx*dx + dy*dy)))
+
+	step := float32(radius) / 4.0 // Step size based on brush radius
+	if distance > step {
+		// Interpolate points between prevPos and position
+		for t := float32(0.0); t <= distance; t += step {
+			interpX := int(start.X + t/distance*dx)
+			interpY := int(start.Y + t/distance*dy)
+			interpPosition := image.Point{X: interpX, Y: interpY}
+
+			paintCircle(canvas, interpPosition, radius, color)
+		}
+	}
+}
+
 func paintCircle(canvas *image.RGBA, position image.Point, radius int, color color.Color) {
 	rSquared := radius * radius
 	for x := position.X - radius; x <= position.X+radius; x++ { // Loop through the bounding box of the circle, ie, the square
 		for y := position.Y - radius; y <= position.Y+radius; y++ {
 
-			// Check if the pixel is within the circle
 			dx, dy := x-position.X, y-position.Y
 			pixelIsWithinCircle := dx*dx+dy*dy < rSquared
 			if !pixelIsWithinCircle {
@@ -415,4 +431,22 @@ func fillImageWithColor(img *image.RGBA, col color.Color) {
 			img.Set(x, y, col)
 		}
 	}
+}
+
+func drawCircle(gtx layout.Context, x, y, radius float32, fillcolor color.NRGBA) {
+	path := new(clip.Path)
+	ops := gtx.Ops
+	const k = 0.551915024494 // http://spencermortensen.com/articles/bezier-circle/
+
+	path.Begin(ops)
+	path.Move(f32.Point{X: x + radius, Y: y})
+	path.Cube(f32.Point{X: 0, Y: radius * k}, f32.Point{X: -radius + radius*k, Y: radius}, f32.Point{X: -radius, Y: radius})    // SE
+	path.Cube(f32.Point{X: -radius * k, Y: 0}, f32.Point{X: -radius, Y: -radius + radius*k}, f32.Point{X: -radius, Y: -radius}) // SW
+	path.Cube(f32.Point{X: 0, Y: -radius * k}, f32.Point{X: radius - radius*k, Y: -radius}, f32.Point{X: radius, Y: -radius})   // NW
+	path.Cube(f32.Point{X: radius * k, Y: 0}, f32.Point{X: radius, Y: radius - radius*k}, f32.Point{X: radius, Y: radius})      // NE
+	path.Close()
+	stack := clip.Outline{Path: path.End()}.Op().Push(ops)
+	paint.ColorOp{Color: fillcolor}.Add(ops)
+	paint.PaintOp{}.Add(ops)
+	stack.Pop()
 }

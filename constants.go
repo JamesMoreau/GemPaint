@@ -20,6 +20,7 @@ var green = color.NRGBA{R: 0, G: 128, B: 0, A: 255}
 var blue = color.NRGBA{R: 0, G: 0, B: 255, A: 255}
 var yellow = color.NRGBA{R: 255, G: 255, B: 0, A: 255}
 var purple = color.NRGBA{R: 128, G: 0, B: 128, A: 255}
+var darkGray = color.NRGBA{R: 30, G: 30, B: 30, A: 255}
 
 var defaultCanvasDimensions = image.Rect(0, 0, 2081, 1256)
 var defaultCanvasBackground = lightGray
