@@ -47,9 +47,6 @@ type GemPaintState struct {
 	previousPaintPosition f32.Point
 
 	expl      *explorer.Explorer
-	saveImage image.RGBA
-	saveErr   error
-	saveChan  chan error
 }
 
 type SelectedTool string
@@ -112,7 +109,6 @@ func main() {
 
 func run(window *app.Window, state *GemPaintState) error {
 	theme := material.NewTheme()
-	state.saveChan = make(chan error)
 
 	var ops op.Ops
 
@@ -154,19 +150,6 @@ func run(window *app.Window, state *GemPaintState) error {
 
 			e.Frame(gtx.Ops)
 		}
-
-		// Handle save errors
-		select {
-		case state.saveErr = <-state.saveChan:
-			if debug {
-				fmt.Println("Error: ", state.saveErr)
-			}
-				
-			window.Invalidate()
-		default:
-			// No save errors to process
-		}
-
 	}
 }
 
@@ -216,9 +199,11 @@ func layoutSidebar(gtx layout.Context, state *GemPaintState, theme *material.The
 	}
 
 	if state.saveButton.Clicked(gtx) {
-		go func(img image.RGBA) {
+		go func() { // Do not block the ui thread
 			if state.canvas == nil {
-				state.saveChan <- fmt.Errorf("no image to save")
+				if debug {
+					fmt.Println("Error: No image to save")
+				}
 				return
 			}
 
@@ -226,18 +211,19 @@ func layoutSidebar(gtx layout.Context, state *GemPaintState, theme *material.The
 			fileName := "gem." + extension
 			file, err := state.expl.CreateFile(fileName)
 			if err != nil {
-				state.saveChan <- fmt.Errorf("failed exporting image file: %w", err)
+				if debug {
+					fmt.Println("Error: ", err)
+				}
 				return
 			}
-			defer func() {
-				state.saveChan <- file.Close()
-			}()
 
 			if err := png.Encode(file, state.canvas); err != nil {
-				state.saveChan <- fmt.Errorf("failed encoding PNG file: %w", err)
+				if debug {
+					fmt.Println("Error: ", err)
+				}
 				return
 			}
-		}(state.saveImage)
+		}()
 	}
 
 	// Handle color button clicks
