@@ -155,9 +155,13 @@ func run(window *app.Window, state *GemPaintState) error {
 			e.Frame(gtx.Ops)
 		}
 
-		// Handle save errors (non-event-based)
+		// Handle save errors
 		select {
 		case state.saveErr = <-state.saveChan:
+			if debug {
+				fmt.Println("Error: ", state.saveErr)
+			}
+				
 			window.Invalidate()
 		default:
 			// No save errors to process
@@ -219,7 +223,8 @@ func layoutSidebar(gtx layout.Context, state *GemPaintState, theme *material.The
 			}
 
 			extension := "png"
-			file, err := state.expl.CreateFile("gem." + extension)
+			fileName := "gem." + extension
+			file, err := state.expl.CreateFile(fileName)
 			if err != nil {
 				state.saveChan <- fmt.Errorf("failed exporting image file: %w", err)
 				return
