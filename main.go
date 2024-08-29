@@ -112,69 +112,55 @@ func main() {
 
 func run(window *app.Window, state *GemPaintState) error {
 	theme := material.NewTheme()
-
 	state.saveChan = make(chan error)
-
-	events := make(chan event.Event)
-	acks := make(chan struct{})
-
-	go func() {
-		for {
-			ev := window.Event()
-			events <- ev
-			<-acks
-			if _, ok := ev.(app.DestroyEvent); ok {
-				return
-			}
-		}
-	}()
 
 	var ops op.Ops
 
 	for {
+		e := window.Event()
 
+		state.expl.ListenEvents(e)
+		switch e := e.(type) {
+		case app.DestroyEvent:
+			return e.Err
+		case app.FrameEvent:
+			gtx := app.NewContext(&ops, e)
+
+			layout.Stack{Alignment: layout.NE}.Layout(gtx,
+				layout.Expanded(
+					func(gtx layout.Context) layout.Dimensions {
+						return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
+							layout.Rigid(
+								func(gtx layout.Context) layout.Dimensions {
+									return layoutSidebar(gtx, state, theme)
+								},
+							),
+							layout.Rigid(
+								func(gtx layout.Context) layout.Dimensions {
+									return layoutCanvas(gtx, state)
+								},
+							),
+						)
+					},
+				),
+				layout.Stacked(
+					func(gtx layout.Context) layout.Dimensions {
+						return layout.UniformInset(32).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+							return material.Body1(theme, fmt.Sprintf("🐭: %.2f, %.2f", state.mousePositionOnCanvas.X, state.mousePositionOnCanvas.Y)).Layout(gtx)
+						})
+					},
+				),
+			)
+
+			e.Frame(gtx.Ops)
+		}
+
+		// Handle save errors (non-event-based)
 		select {
 		case state.saveErr = <-state.saveChan:
 			window.Invalidate()
-		case e := <-events:
-			state.expl.ListenEvents(e)
-			switch e := e.(type) {
-			case app.DestroyEvent:
-				acks <- struct{}{}
-				return e.Err
-			case app.FrameEvent:
-				gtx := app.NewContext(&ops, e)
-
-				layout.Stack{Alignment: layout.NE}.Layout(gtx,
-					layout.Expanded(
-						func(gtx layout.Context) layout.Dimensions {
-							return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
-								layout.Rigid(
-									func(gtx layout.Context) layout.Dimensions {
-										return layoutSidebar(gtx, state, theme)
-									},
-								),
-								layout.Rigid(
-									func(gtx layout.Context) layout.Dimensions {
-										return layoutCanvas(gtx, state)
-									},
-								),
-							)
-						},
-					),
-					layout.Stacked(
-						func(gtx layout.Context) layout.Dimensions {
-							return layout.UniformInset(32).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-								return material.Body1(theme, fmt.Sprintf("🐭: %.2f, %.2f", state.mousePositionOnCanvas.X, state.mousePositionOnCanvas.Y)).Layout(gtx)
-							})
-						},
-					),
-				)
-
-				e.Frame(gtx.Ops)
-			}
-			acks <- struct{}{}
-
+		default:
+			// No save errors to process
 		}
 
 	}
