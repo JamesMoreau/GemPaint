@@ -3,6 +3,7 @@ package main
 import (
 	"image"
 	"image/color"
+	"time"
 
 	"gioui.org/f32"
 	"gioui.org/widget"
@@ -31,6 +32,8 @@ var defaultCursorRadius = 20
 var minimumCursorRadius = 10
 var maximumCursorRadius = 100
 var cursorRadiusChangeStep = 10
+
+var fillCoolDown = time.Second * 2
 
 var BrushIcon *widget.Icon = func() *widget.Icon {
 	icon, _ := widget.NewIcon(icons.ImageBrush)
@@ -62,3 +65,7 @@ var SaveIcon *widget.Icon = func() *widget.Icon {
 	return icon
 }()
 
+var BucketIcon *widget.Icon = func() *widget.Icon {
+	icon, _ := widget.NewIcon(icons.ActionOpacity)
+	return icon
+}()

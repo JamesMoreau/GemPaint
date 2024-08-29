@@ -30,6 +30,7 @@ type GemPaintState struct {
 
 	brushButton  widget.Clickable
 	eraserButton widget.Clickable
+	BucketButton widget.Clickable
 	selectedTool SelectedTool
 
 	increaseButton widget.Clickable
@@ -54,10 +55,11 @@ type SelectedTool string
 const (
 	Brush  SelectedTool = "Brush"
 	Eraser SelectedTool = "Eraser"
+	Bucket SelectedTool = "Bucket"
 )
 
 func main() {
-	
+
 	// Get arguments
 	args := os.Args
 	for _, arg := range args {
@@ -86,7 +88,7 @@ func main() {
 }
 
 func run(window *app.Window) error {
-	
+
 	// Initialize the application state
 	state := new(GemPaintState) // store the state on the heap
 	*state = GemPaintState{
@@ -176,6 +178,14 @@ func layoutSidebar(gtx layout.Context, state *GemPaintState, theme *material.The
 		}
 	}
 
+	if state.BucketButton.Clicked(gtx) {
+		state.selectedTool = Bucket
+		state.previousPaintPosition = mouseIsOutsideCanvas
+		if debug {
+			fmt.Println("Current tool: ", state.selectedTool)
+		}
+	}
+
 	if state.increaseButton.Clicked(gtx) {
 		if state.cursorRadius < maximumCursorRadius {
 			state.cursorRadius += cursorRadiusChangeStep
@@ -234,13 +244,13 @@ func layoutSidebar(gtx layout.Context, state *GemPaintState, theme *material.The
 	for i := range state.colorButtons {
 		btn := &state.colorButtons[i]
 		wasClicked := btn.Clickable.Clicked(gtx)
-		
+
 		// Dynamically set isSelected based on selectedColorIndex
 		btn.isSelected = (i == state.selectedColorIndex)
-		
+
 		if wasClicked {
 			state.selectedColorIndex = i
-	
+
 			if debug {
 				fmt.Println("Selected color: ", btn.Label)
 			}
@@ -255,6 +265,10 @@ func layoutSidebar(gtx layout.Context, state *GemPaintState, theme *material.The
 		layout.Rigid(layout.Spacer{Height: unit.Dp(8)}.Layout),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return ToolButton(theme, &state.eraserButton, EraserIcon, state.selectedTool == Eraser, golangBlue, lightGray, "Brush").Layout(gtx)
+		}),
+		layout.Rigid(layout.Spacer{Height: unit.Dp(8)}.Layout),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return ToolButton(theme, &state.BucketButton, BucketIcon, state.selectedTool == Bucket, golangBlue, lightGray, "Bucket").Layout(gtx)
 		}),
 		layout.Rigid(layout.Spacer{Height: unit.Dp(8)}.Layout),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -387,6 +401,9 @@ func layoutCanvas(gtx layout.Context, state *GemPaintState) layout.Dimensions {
 				drawCircle(gtx, state.mousePositionOnCanvas.X, state.mousePositionOnCanvas.Y, float32(state.cursorRadius), lightGray)
 				drawCircle(gtx, state.mousePositionOnCanvas.X, state.mousePositionOnCanvas.Y, float32(state.cursorRadius-1), cursorColor)
 
+			case Bucket:
+				cursorColor = state.colorButtons[state.selectedColorIndex].Color
+				drawCircle(gtx, state.mousePositionOnCanvas.X, state.mousePositionOnCanvas.Y, 5, cursorColor)
 			default:
 				if debug {
 					fmt.Println("Error: Using unknown tool")
@@ -397,8 +414,6 @@ func layoutCanvas(gtx layout.Context, state *GemPaintState) layout.Dimensions {
 		}),
 	)
 }
-
-// CURSOR STUFF
 
 func handlePaint(state *GemPaintState, p pointer.Event) {
 	isPaintEvent := p.Kind == pointer.Press || p.Kind == pointer.Drag // sanity check
@@ -434,6 +449,16 @@ func handlePaint(state *GemPaintState, p pointer.Event) {
 
 		state.previousPaintPosition = p.Position
 
+	case Bucket:
+		if p.Kind != pointer.Press { // We only want to fill the bucket on the initial click
+			return
+		}
+
+		positionOnCanvas := image.Point{X: int(p.Position.X), Y: int(p.Position.Y)}
+		newColor := state.colorButtons[state.selectedColorIndex].Color
+
+		// Find all pixels that need to be replaced with the new color that are connected to the clicked pixel
+		floodFill(state, positionOnCanvas, newColor)
 	default:
 		if debug {
 			fmt.Println("Error: Using unknown tool")
@@ -441,6 +466,52 @@ func handlePaint(state *GemPaintState, p pointer.Event) {
 		return
 	}
 
+}
+
+func floodFill(state *GemPaintState, start image.Point, newColor color.Color) {
+	if !start.In(state.canvas.Rect) {
+		if debug {
+			fmt.Println("Error: Start point is outside canvas")
+		}
+		return // Nothing to be done!
+	}
+
+	oldColor := state.canvas.At(start.X, start.Y)
+
+	if colorsAreEqual(oldColor, newColor) {
+		if debug {
+			fmt.Println("Warning: Old color is the same as new fill color")
+		}
+		return
+	}
+
+	queue := []image.Point{start}
+
+	// Perform the flood fill using BFS
+	for len(queue) > 0 {
+		// Dequeue a point
+		currentPixel := queue[0]
+		queue = queue[1:]
+
+		if !currentPixel.In(state.canvas.Rect) {
+			continue
+		}
+
+		currentPixelColor := state.canvas.At(currentPixel.X, currentPixel.Y)
+		if !colorsAreEqual(currentPixelColor, oldColor) {
+			continue
+		}
+
+		state.canvas.Set(currentPixel.X, currentPixel.Y, newColor)
+
+		// Add the neighboring pixels to the queue
+		queue = append(queue, image.Point{X: currentPixel.X + 1, Y: currentPixel.Y})
+		queue = append(queue, image.Point{X: currentPixel.X - 1, Y: currentPixel.Y})
+		queue = append(queue, image.Point{X: currentPixel.X, Y: currentPixel.Y + 1})
+		queue = append(queue, image.Point{X: currentPixel.X, Y: currentPixel.Y - 1})
+	}
+
+	fmt.Println("Flood fill complete")
 }
 
 func interpolatePaintBetweenPoints(start, end f32.Point, canvas *image.RGBA, radius int, color color.Color) {
@@ -472,8 +543,8 @@ func paintCircle(canvas *image.RGBA, position image.Point, radius int, color col
 				continue
 			}
 
-			// Ensure the coordinates are within bounds before painting
-			if x < 0 || x >= canvas.Bounds().Dx() || y < 0 || y >= canvas.Bounds().Dy() {
+			isWithinBounds := x >= 0 && x < canvas.Bounds().Dx() && y >= 0 && y < canvas.Bounds().Dy()
+			if !isWithinBounds {
 				continue
 			}
 
@@ -510,4 +581,11 @@ func drawCircle(gtx layout.Context, x, y, radius float32, fillcolor color.NRGBA)
 	paint.ColorOp{Color: fillcolor}.Add(ops)
 	paint.PaintOp{}.Add(ops)
 	stack.Pop()
+}
+
+func colorsAreEqual(c1, c2 color.Color) bool {
+	r1, g1, b1, a1 := c1.RGBA()
+	r2, g2, b2, a2 := c2.RGBA()
+
+	return r1 == r2 && g1 == g2 && b1 == b2 && a1 == a2
 }
