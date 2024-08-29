@@ -69,7 +69,7 @@ func main() {
 
 	go func() {
 		window := new(app.Window)
-		window.Option(app.Title("GemBoard"))
+		window.Option(app.Title("GemPaint"))
 		window.Option(app.Size(unit.Dp(1000), unit.Dp(800)))
 
 		// Run the program
@@ -92,7 +92,7 @@ func run(window *app.Window) error {
 		selectedTool: Brush,
 		cursorRadius: defaultCursorRadius,
 		colorButtons: []ColorButtonStyle{
-			{Color: red, Label: "Red", Clickable: &widget.Clickable{}, isSelected: true}, //TODO: what needs to be initialized?
+			{Color: red, Label: "Red", Clickable: &widget.Clickable{}},
 			{Color: orange, Label: "Orange", Clickable: &widget.Clickable{}},
 			{Color: green, Label: "Green", Clickable: &widget.Clickable{}},
 			{Color: blue, Label: "Blue", Clickable: &widget.Clickable{}},
@@ -229,14 +229,13 @@ func layoutSidebar(gtx layout.Context, state *GemPaintState, theme *material.The
 	for i := range state.colorButtons {
 		btn := &state.colorButtons[i]
 		wasClicked := btn.Clickable.Clicked(gtx)
+		
+		// Dynamically set isSelected based on selectedColorIndex
+		btn.isSelected = (i == state.selectedColorIndex)
+		
 		if wasClicked {
-			for j := range state.colorButtons {
-				state.colorButtons[j].isSelected = false
-			}
-
 			state.selectedColorIndex = i
-			btn.isSelected = true
-
+	
 			if debug {
 				fmt.Println("Selected color: ", btn.Label)
 			}
