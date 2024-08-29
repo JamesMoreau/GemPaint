@@ -46,7 +46,7 @@ type GemPaintState struct {
 	mousePositionOnCanvas f32.Point
 	previousPaintPosition f32.Point
 
-	expl      *explorer.Explorer
+	expl *explorer.Explorer
 }
 
 type SelectedTool string
@@ -67,9 +67,27 @@ func main() {
 		}
 	}
 
+	go func() {
+		window := new(app.Window)
+		window.Option(app.Title("GemBoard"))
+		window.Option(app.Size(unit.Dp(1000), unit.Dp(800)))
+
+		// Run the program
+		err := run(window)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		os.Exit(0)
+	}()
+
+	app.Main()
+}
+
+func run(window *app.Window) error {
 	// Initialize the application state
 	state := new(GemPaintState) // store the state on the heap
-	*state = GemPaintState{     // TODO: move this to run()
+	*state = GemPaintState{
 		theme:        material.NewTheme(),
 		selectedTool: Brush,
 		cursorRadius: defaultCursorRadius,
@@ -85,29 +103,10 @@ func main() {
 		selectedColorIndex:    0,
 		canvas:                image.NewRGBA(defaultCanvasDimensions),
 		mousePositionOnCanvas: mouseIsOutsideCanvas,
+		expl:                  explorer.NewExplorer(window),
 	}
 
 	fillImageWithColor(state.canvas, defaultCanvasColor)
-
-	go func() {
-		window := new(app.Window)
-		window.Option(app.Title("GemBoard"))
-		window.Option(app.Size(unit.Dp(1000), unit.Dp(800)))
-		state.expl = explorer.NewExplorer(window)
-
-		// Run the program
-		err := run(window, state)
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		os.Exit(0)
-	}()
-
-	app.Main()
-}
-
-func run(window *app.Window, state *GemPaintState) error {
 	theme := material.NewTheme()
 
 	var ops op.Ops
