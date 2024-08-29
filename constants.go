@@ -13,7 +13,6 @@ import (
 var golangBlue = color.NRGBA{R: 66, G: 133, B: 244, A: 255}
 var lightGray = color.NRGBA{R: 200, G: 200, B: 200, A: 255}
 var softBlue = color.NRGBA{R: 230, G: 240, B: 250, A: 255}
-var darkBlue = color.NRGBA{R: 58, G: 110, B: 165, A: 255}
 var red = color.NRGBA{R: 255, G: 0, B: 0, A: 255}
 var orange = color.NRGBA{R: 255, G: 165, B: 0, A: 255}
 var green = color.NRGBA{R: 0, G: 128, B: 0, A: 255}
@@ -22,7 +21,7 @@ var yellow = color.NRGBA{R: 255, G: 255, B: 0, A: 255}
 var purple = color.NRGBA{R: 128, G: 0, B: 128, A: 255}
 var darkGray = color.NRGBA{R: 30, G: 30, B: 30, A: 255}
 
-var defaultCanvasDimensions = image.Rect(0, 0, 2081, 1256)
+var defaultCanvasDimensions = image.Rect(0, 0, 1920, 1080)
 var defaultCanvasBackground = lightGray
 var defaultCanvasColor = color.NRGBA{R: 255, G: 255, B: 255, A: 255}
 

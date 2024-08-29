@@ -57,6 +57,7 @@ const (
 )
 
 func main() {
+	
 	// Get arguments
 	args := os.Args
 	for _, arg := range args {
@@ -70,7 +71,7 @@ func main() {
 	go func() {
 		window := new(app.Window)
 		window.Option(app.Title("GemPaint"))
-		window.Option(app.Size(unit.Dp(1000), unit.Dp(800)))
+		window.Option(app.Size(unit.Dp(1920), unit.Dp(1080)))
 
 		// Run the program
 		err := run(window)
@@ -85,6 +86,7 @@ func main() {
 }
 
 func run(window *app.Window) error {
+	
 	// Initialize the application state
 	state := new(GemPaintState) // store the state on the heap
 	*state = GemPaintState{
@@ -141,7 +143,10 @@ func run(window *app.Window) error {
 				layout.Stacked(
 					func(gtx layout.Context) layout.Dimensions {
 						return layout.UniformInset(32).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-							return material.Body1(theme, fmt.Sprintf("🐭: %.2f, %.2f", state.mousePositionOnCanvas.X, state.mousePositionOnCanvas.Y)).Layout(gtx)
+							if debug {
+								return material.Body1(theme, fmt.Sprintf("🐭: %.2f, %.2f", state.mousePositionOnCanvas.X, state.mousePositionOnCanvas.Y)).Layout(gtx)
+							}
+							return layout.Dimensions{Size: gtx.Constraints.Min}
 						})
 					},
 				),
