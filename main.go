@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"image"
 	"image/color"
-	"image/png"
 	"log"
 	"math"
 	"os"
@@ -228,27 +227,11 @@ func layoutSidebar(gtx layout.Context, state *GemPaintState, theme *material.The
 
 			// Depending on the platform, how we access the file system will differ
 			platform := runtime.GOOS
-			switch platform {
-			case "js":
-				saveOnWeb(state, fileName)
-
-			default:
-				fmt.Println("Saving image on GOOS:", platform)
-				file, err := state.expl.CreateFile(fileName)
-				if err != nil {
-					if debug {
-						fmt.Println("Error: ", err)
-					}
-					return
-				}
-
-				if err := png.Encode(file, state.canvas); err != nil {
-					if debug {
-						fmt.Println("Error: ", err)
-					}
-					return
-				}
+			if debug {
+				fmt.Println("Saving on GOOS: ", platform)
 			}
+
+			saveOnPlatform(state, fileName)
 
 		}()
 	}
@@ -392,8 +375,7 @@ func layoutCanvas(gtx layout.Context, state *GemPaintState) layout.Dimensions {
 			return widget.Image{
 				Src: op,
 				Fit: widget.Unscaled,
-
-				Scale: 1.0,
+				Scale: 1.0 / gtx.Metric.PxPerDp,
 			}.Layout(gtx)
 		}),
 		layout.Expanded(func(gtx layout.Context) layout.Dimensions {

@@ -1,19 +1,19 @@
-// +build js,wasm
+//go:build js && wasm
 
 package main
 
 import (
-	"syscall/js"
-	"fmt"
 	"bytes"
+	"fmt"
 	"image/png"
+	"syscall/js"
 )
 
-func saveOnWeb(state *GemPaintState, fileName string) {
+func saveOnPlatform(state *GemPaintState, fileName string) {
 	if debug {
 		fmt.Println("Saving image on wasm/js")
 	}
-	
+
 	// Convert the image.RGBA to a JavaScript Uint8Array
 	buf := bytes.Buffer{}
 	if err := png.Encode(&buf, state.canvas); err != nil {
