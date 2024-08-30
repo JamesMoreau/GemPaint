@@ -8,6 +8,7 @@ import (
 	"log"
 	"math"
 	"os"
+	"runtime"
 
 	"gioui.org/app"
 	"gioui.org/f32"
@@ -214,6 +215,7 @@ func layoutSidebar(gtx layout.Context, state *GemPaintState, theme *material.The
 
 	if state.saveButton.Clicked(gtx) {
 		go func() { // Do not block the ui thread
+
 			if state.canvas == nil {
 				if debug {
 					fmt.Println("Error: No image to save")
@@ -223,20 +225,31 @@ func layoutSidebar(gtx layout.Context, state *GemPaintState, theme *material.The
 
 			extension := "png"
 			fileName := "gem." + extension
-			file, err := state.expl.CreateFile(fileName)
-			if err != nil {
-				if debug {
-					fmt.Println("Error: ", err)
+
+			// Depending on the platform, how we access the file system will differ
+			platform := runtime.GOOS
+			switch platform {
+			case "js":
+				saveOnWeb(state, fileName)
+
+			default:
+				fmt.Println("Saving image on GOOS:", platform)
+				file, err := state.expl.CreateFile(fileName)
+				if err != nil {
+					if debug {
+						fmt.Println("Error: ", err)
+					}
+					return
 				}
-				return
+
+				if err := png.Encode(file, state.canvas); err != nil {
+					if debug {
+						fmt.Println("Error: ", err)
+					}
+					return
+				}
 			}
 
-			if err := png.Encode(file, state.canvas); err != nil {
-				if debug {
-					fmt.Println("Error: ", err)
-				}
-				return
-			}
 		}()
 	}
 
@@ -510,8 +523,6 @@ func floodFill(state *GemPaintState, start image.Point, newColor color.Color) {
 		queue = append(queue, image.Point{X: currentPixel.X, Y: currentPixel.Y + 1})
 		queue = append(queue, image.Point{X: currentPixel.X, Y: currentPixel.Y - 1})
 	}
-
-	fmt.Println("Flood fill complete")
 }
 
 func interpolatePaintBetweenPoints(start, end f32.Point, canvas *image.RGBA, radius int, color color.Color) {
