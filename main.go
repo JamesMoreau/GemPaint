@@ -43,6 +43,8 @@ type GemPaintState struct {
 	colorButtons       []ColorButtonStyle
 	selectedColorIndex int
 
+	sidebarButtons layout.List
+
 	canvas                *image.RGBA
 	mousePositionOnCanvas f32.Point
 	previousPaintPosition f32.Point
@@ -105,6 +107,7 @@ func run(window *app.Window) error {
 			{Color: darkGray, Label: "Gray", Clickable: &widget.Clickable{}},
 		},
 		selectedColorIndex:    0,
+		sidebarButtons:        layout.List{Axis: layout.Vertical},
 		canvas:                image.NewRGBA(defaultCanvasDimensions),
 		mousePositionOnCanvas: mouseIsOutsideCanvas,
 		expl:                  explorer.NewExplorer(window),
@@ -254,51 +257,51 @@ func layoutSidebar(gtx layout.Context, state *GemPaintState, theme *material.The
 	}
 
 	// Tool buttons
-	children := []layout.FlexChild{
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+	children := []layout.Widget{
+		func(gtx layout.Context) layout.Dimensions {
 			return ToolButton(theme, &state.brushButton, BrushIcon, state.selectedTool == Brush, golangBlue, lightGray, "Brush").Layout(gtx)
-		}),
-		layout.Rigid(layout.Spacer{Height: unit.Dp(8)}.Layout),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+		},
+		layout.Spacer{Height: unit.Dp(8)}.Layout,
+		func(gtx layout.Context) layout.Dimensions {
 			return ToolButton(theme, &state.eraserButton, EraserIcon, state.selectedTool == Eraser, golangBlue, lightGray, "Brush").Layout(gtx)
-		}),
-		layout.Rigid(layout.Spacer{Height: unit.Dp(8)}.Layout),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+		},
+		layout.Spacer{Height: unit.Dp(8)}.Layout,
+		func(gtx layout.Context) layout.Dimensions {
 			return ToolButton(theme, &state.BucketButton, BucketIcon, state.selectedTool == Bucket, golangBlue, lightGray, "Bucket").Layout(gtx)
-		}),
-		layout.Rigid(layout.Spacer{Height: unit.Dp(8)}.Layout),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+		},
+		layout.Spacer{Height: unit.Dp(8)}.Layout,
+		func(gtx layout.Context) layout.Dimensions {
 			return ToolButton(theme, &state.increaseButton, AddIcon, false, golangBlue, lightGray, "Increase").Layout(gtx)
-		}),
-		layout.Rigid(layout.Spacer{Height: unit.Dp(8)}.Layout),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+		},
+		layout.Spacer{Height: unit.Dp(8)}.Layout,
+		func(gtx layout.Context) layout.Dimensions {
 			return ToolButton(theme, &state.decreaseButton, MinusIcon, false, golangBlue, lightGray, "Decrease").Layout(gtx)
-		}),
-		layout.Rigid(layout.Spacer{Height: unit.Dp(20)}.Layout),
+		},
+		layout.Spacer{Height: unit.Dp(16)}.Layout,
 	}
 
 	// Color buttons
 	for i := range state.colorButtons {
 		btn := &state.colorButtons[i]
 		children = append(children,
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			func(gtx layout.Context) layout.Dimensions {
 				return btn.Layout(gtx, theme)
-			}),
+			},
 
-			layout.Rigid(layout.Spacer{Height: unit.Dp(8)}.Layout),
+			layout.Spacer{Height: unit.Dp(8)}.Layout,
 		)
 	}
 
 	// Other buttons
 	children = append(children,
-		layout.Rigid(layout.Spacer{Height: unit.Dp(20)}.Layout),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+		layout.Spacer{Height: unit.Dp(16)}.Layout,
+		func(gtx layout.Context) layout.Dimensions {
 			return ToolButton(theme, &state.clearButton, ClearIcon, false, golangBlue, lightGray, "Clear").Layout(gtx)
-		}),
-		layout.Rigid(layout.Spacer{Height: unit.Dp(8)}.Layout),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+		},
+		layout.Spacer{Height: unit.Dp(8)}.Layout,
+		func(gtx layout.Context) layout.Dimensions {
 			return ToolButton(theme, &state.saveButton, SaveIcon, false, golangBlue, lightGray, "Save").Layout(gtx)
-		}),
+		},
 	)
 
 	return layout.Background{}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
@@ -307,7 +310,9 @@ func layoutSidebar(gtx layout.Context, state *GemPaintState, theme *material.The
 		return layout.Dimensions{Size: gtx.Constraints.Min}
 	}, func(gtx layout.Context) layout.Dimensions {
 		return layout.UniformInset(10).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-			return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)
+			return state.sidebarButtons.Layout(gtx, len(children), func(gtx layout.Context, i int) layout.Dimensions {
+				return children[i](gtx)
+			})
 		})
 	})
 }
@@ -373,8 +378,8 @@ func layoutCanvas(gtx layout.Context, state *GemPaintState) layout.Dimensions {
 			op := paint.NewImageOp(state.canvas)
 
 			return widget.Image{
-				Src: op,
-				Fit: widget.Unscaled,
+				Src:   op,
+				Fit:   widget.Unscaled,
 				Scale: 1.0 / gtx.Metric.PxPerDp,
 			}.Layout(gtx)
 		}),

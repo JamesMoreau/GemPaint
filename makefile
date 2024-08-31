@@ -1,5 +1,3 @@
-build:
-	go build -o GemBoard github.com/JamesMoreau/GemBoard
 
 buildWeb:
 	gogio -target js github.com/JamesMoreau/GemBoard 
