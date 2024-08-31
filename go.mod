@@ -1,4 +1,4 @@
-module github.com/JamesMoreau/GemBoard
+module github.com/JamesMoreau/GemPaint
 
 go 1.21.4
 
@@ -10,8 +10,6 @@ require (
 require (
 	git.wow.st/gmp/jni v0.0.0-20210610011705-34026c7e22d0 // indirect
 	github.com/godbus/dbus/v5 v5.0.6 // indirect
-	github.com/shurcooL/go v0.0.0-20200502201357-93f07166e636 // indirect
-	github.com/shurcooL/go-goon v1.0.0 // indirect
 )
 
 require (
