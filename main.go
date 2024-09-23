@@ -458,7 +458,11 @@ func handlePaint(state *GemPaintState, p pointer.Event) {
 		newColor := state.colorButtons[state.selectedColorIndex].Color
 
 		// Find all pixels that need to be replaced with the new color that are connected to the clicked pixel
-		floodFill(state, positionOnCanvas, newColor)
+		err := floodFill(state.canvas, positionOnCanvas, newColor)
+		if err != nil && debug {
+			fmt.Println(err)
+		}
+
 	default:
 		if debug {
 			fmt.Println("Error: Using unknown tool")
@@ -468,41 +472,34 @@ func handlePaint(state *GemPaintState, p pointer.Event) {
 
 }
 
-func floodFill(state *GemPaintState, start image.Point, newColor color.Color) {
-	if !start.In(state.canvas.Rect) {
-		if debug {
-			fmt.Println("Error: Start point is outside canvas")
-		}
-		return // Nothing to be done!
+func floodFill(canvas *image.RGBA, start image.Point, newColor color.Color) error {
+	if !start.In(canvas.Rect) {
+		return fmt.Errorf("start point is outside canvas") // Nothing to be done!
 	}
 
-	oldColor := state.canvas.At(start.X, start.Y)
+	oldColor := canvas.At(start.X, start.Y)
 
 	if colorsAreEqual(oldColor, newColor) {
-		if debug {
-			fmt.Println("Warning: Old color is the same as new fill color")
-		}
-		return
+		return fmt.Errorf("old color is the same as new fill color")
 	}
 
 	queue := []image.Point{start}
 
-	// Perform the flood fill using BFS
 	for len(queue) > 0 {
 		// Dequeue a point
 		currentPixel := queue[0]
 		queue = queue[1:]
 
-		if !currentPixel.In(state.canvas.Rect) {
+		if !currentPixel.In(canvas.Rect) {
 			continue
 		}
 
-		currentPixelColor := state.canvas.At(currentPixel.X, currentPixel.Y)
+		currentPixelColor := canvas.At(currentPixel.X, currentPixel.Y)
 		if !colorsAreEqual(currentPixelColor, oldColor) {
 			continue
 		}
 
-		state.canvas.Set(currentPixel.X, currentPixel.Y, newColor)
+		canvas.Set(currentPixel.X, currentPixel.Y, newColor)
 
 		// Add the neighboring pixels to the queue
 		queue = append(queue, image.Point{X: currentPixel.X + 1, Y: currentPixel.Y})
@@ -510,6 +507,8 @@ func floodFill(state *GemPaintState, start image.Point, newColor color.Color) {
 		queue = append(queue, image.Point{X: currentPixel.X, Y: currentPixel.Y + 1})
 		queue = append(queue, image.Point{X: currentPixel.X, Y: currentPixel.Y - 1})
 	}
+
+	return nil
 }
 
 func interpolatePaintBetweenPoints(start, end f32.Point, canvas *image.RGBA, radius int, color color.Color) {
