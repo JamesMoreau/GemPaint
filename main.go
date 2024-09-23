@@ -46,10 +46,13 @@ type GemPaintState struct {
 	sidebarButtons layout.List
 
 	canvas                *image.RGBA
+	canvasInputTag        bool
 	mousePositionOnCanvas f32.Point
 	previousPaintPosition f32.Point
 
 	expl *explorer.Explorer
+
+	debug bool
 }
 
 type SelectedTool string
@@ -92,8 +95,7 @@ func main() {
 func run(window *app.Window) error {
 
 	// Initialize the application state
-	state := new(GemPaintState) // store the state on the heap
-	*state = GemPaintState{
+	state := GemPaintState{
 		theme:        material.NewTheme(),
 		selectedTool: Brush,
 		cursorRadius: defaultCursorRadius,
@@ -134,12 +136,12 @@ func run(window *app.Window) error {
 						return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
 							layout.Rigid(
 								func(gtx layout.Context) layout.Dimensions {
-									return layoutSidebar(gtx, state, theme)
+									return layoutSidebar(gtx, &state, theme)
 								},
 							),
 							layout.Rigid(
 								func(gtx layout.Context) layout.Dimensions {
-									return layoutCanvas(gtx, state)
+									return layoutCanvas(gtx, &state)
 								},
 							),
 						)
@@ -317,7 +319,7 @@ func layoutSidebar(gtx layout.Context, state *GemPaintState, theme *material.The
 	})
 }
 
-var tag = new(bool) // tag is a unique identifier for the canvas
+// var canvasInputTag bool // tag is a unique identifier for the canvas
 
 func layoutCanvas(gtx layout.Context, state *GemPaintState) layout.Dimensions {
 
@@ -331,12 +333,12 @@ func layoutCanvas(gtx layout.Context, state *GemPaintState) layout.Dimensions {
 		layout.Expanded(func(gtx layout.Context) layout.Dimensions {
 			// Handle user input. We only want to handle pointer events inside the canvas image.
 			defer clip.Rect{Max: gtx.Constraints.Max}.Push(gtx.Ops).Pop()
-			event.Op(gtx.Ops, tag)
+			event.Op(gtx.Ops, state.canvasInputTag)
 
 			for {
 				ev, ok := gtx.Event(
 					pointer.Filter{
-						Target: tag,
+						Target: state.canvasInputTag,
 						Kinds:  pointer.Press | pointer.Drag | pointer.Move | pointer.Leave | pointer.Enter,
 					},
 				)
