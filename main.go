@@ -25,7 +25,7 @@ import (
 
 var debug = false
 
-type GemPaintState struct {
+type GemPaint struct {
 	theme *material.Theme
 
 	brushButton  widget.Clickable
@@ -51,8 +51,6 @@ type GemPaintState struct {
 	previousPaintPosition f32.Point
 
 	expl *explorer.Explorer
-
-	debug bool
 }
 
 type SelectedTool string
@@ -93,9 +91,8 @@ func main() {
 }
 
 func run(window *app.Window) error {
-
 	// Initialize the application state
-	state := GemPaintState{
+	state := GemPaint{
 		theme:        material.NewTheme(),
 		selectedTool: Brush,
 		cursorRadius: defaultCursorRadius,
@@ -164,7 +161,7 @@ func run(window *app.Window) error {
 	}
 }
 
-func layoutSidebar(gtx layout.Context, state *GemPaintState, theme *material.Theme) layout.Dimensions {
+func layoutSidebar(gtx layout.Context, state *GemPaint, theme *material.Theme) layout.Dimensions {
 
 	// Handle tool button clicks
 	if state.brushButton.Clicked(gtx) {
@@ -319,10 +316,7 @@ func layoutSidebar(gtx layout.Context, state *GemPaintState, theme *material.The
 	})
 }
 
-// var canvasInputTag bool // tag is a unique identifier for the canvas
-
-func layoutCanvas(gtx layout.Context, state *GemPaintState) layout.Dimensions {
-
+func layoutCanvas(gtx layout.Context, state *GemPaint) layout.Dimensions {
 	// Render the canvas
 	return layout.Stack{Alignment: layout.NW}.Layout(gtx,
 		layout.Expanded(func(gtx layout.Context) layout.Dimensions {
@@ -417,7 +411,7 @@ func layoutCanvas(gtx layout.Context, state *GemPaintState) layout.Dimensions {
 	)
 }
 
-func handlePaint(state *GemPaintState, p pointer.Event) {
+func handlePaint(state *GemPaint, p pointer.Event) {
 	isPaintEvent := p.Kind == pointer.Press || p.Kind == pointer.Drag // sanity check
 	if !isPaintEvent {
 		return
@@ -460,9 +454,9 @@ func handlePaint(state *GemPaintState, p pointer.Event) {
 		newColor := state.colorButtons[state.selectedColorIndex].Color
 
 		// Find all pixels that need to be replaced with the new color that are connected to the clicked pixel
-		err := floodFill(state.canvas, positionOnCanvas, newColor)
-		if err != nil && debug {
-			fmt.Println(err)
+		success := floodFill(state.canvas, positionOnCanvas, newColor)
+		if !success && debug {
+			fmt.Println("Error: Flood fill failed")
 		}
 
 	default:
@@ -471,18 +465,17 @@ func handlePaint(state *GemPaintState, p pointer.Event) {
 		}
 		return
 	}
-
 }
 
-func floodFill(canvas *image.RGBA, start image.Point, newColor color.Color) error {
+func floodFill(canvas *image.RGBA, start image.Point, newColor color.Color) (success bool) {
 	if !start.In(canvas.Rect) {
-		return fmt.Errorf("start point is outside canvas") // Nothing to be done!
+		return false // Nothing to be done!
 	}
 
 	oldColor := canvas.At(start.X, start.Y)
 
 	if colorsAreEqual(oldColor, newColor) {
-		return fmt.Errorf("old color is the same as new fill color")
+		return false // old color is the same as new fill color
 	}
 
 	queue := []image.Point{start}
@@ -510,7 +503,7 @@ func floodFill(canvas *image.RGBA, start image.Point, newColor color.Color) erro
 		queue = append(queue, image.Point{X: currentPixel.X, Y: currentPixel.Y - 1})
 	}
 
-	return nil
+	return true
 }
 
 func interpolatePaintBetweenPoints(start, end f32.Point, canvas *image.RGBA, radius int, color color.Color) {

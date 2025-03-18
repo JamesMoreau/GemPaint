@@ -7,7 +7,7 @@ import (
 	"image/png"
 )
 
-func saveOnPlatform(state *GemPaintState, fileName string) {
+func saveOnPlatform(state *GemPaint, fileName string) {
 	file, err := state.expl.CreateFile(fileName)
 	if err != nil {
 		if debug {

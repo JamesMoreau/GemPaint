@@ -9,7 +9,7 @@ import (
 	"syscall/js"
 )
 
-func saveOnPlatform(state *GemPaintState, fileName string) {
+func saveOnPlatform(state *GemPaint, fileName string) {
 	if debug {
 		fmt.Println("Saving image on wasm/js")
 	}
